@@ -21,31 +21,44 @@
 
 int32 Main(const String &programName, const LinkedList<String> &args)
 {
-	if(args.GetNumberOfElements() == 1)
+	bool headerOnly = false;
+
+	switch(args.GetNumberOfElements())
 	{
-		Path path;
-
-		path = args[0];
-		if(!path.Exists())
+		case 2:
+			if(args[0] == "-header")
+				headerOnly = true;
+			else
+				NOT_IMPLEMENTED_ERROR;
+			//fall through
+		case 1:
 		{
-			stdErr << "Input file doesn't exist." << endl;
-			return EXIT_FAILURE;
-		}
-		if(path.IsDirectory())
-		{
-			stdErr << "Input file is a directory." << endl;
-			return EXIT_FAILURE;
-		}
+			Path path;
 
-		Prober prober(path);
+			path = args[args.GetNumberOfElements()-1];
+			if(!path.Exists())
+			{
+				stdErr << "Input file doesn't exist." << endl;
+				return EXIT_FAILURE;
+			}
+			if(path.IsDirectory())
+			{
+				stdErr << "Input file is a directory." << endl;
+				return EXIT_FAILURE;
+			}
 
-		prober.Probe();
-		return EXIT_SUCCESS;
+			Prober prober(path);
+
+			prober.Probe(headerOnly);
+			return EXIT_SUCCESS;
+		}
 	}
 
 	stdOut << "deprober is a tool for testing demuxing and decoding using ACStdLib." << endl
 		   << "It is not designed to do anything useful but aid in debugging." << endl << endl
-		   << "usage: deprober container" << endl;
+		   << "usage: deprober [options] container" << endl
+			<< "options can be:" << endl
+			<< "-header\t\tdisplay header info only. Skip payload..." << endl;
 
 	return EXIT_SUCCESS;
 }

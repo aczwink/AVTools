@@ -16,6 +16,10 @@ find_library(ACSTDLIBSTATIC_LIBRARY NAMES ACStdLibStatic_d)
 set(LIBS ${ACSTDLIB_LIBRARY} ${ACSTDLIBSTATIC_LIBRARY})
 
 add_subdirectory(src_deprober)
+add_subdirectory(src_muxprober)
 
 add_executable(deprober ${SOURCE_FILES_DEPROBER})
 target_link_libraries(deprober ${LIBS})
+
+add_executable(muxprober ${SOURCE_FILES_MUXPROBER})
+target_link_libraries(muxprober ${LIBS})

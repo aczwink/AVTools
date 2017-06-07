@@ -27,38 +27,20 @@ class CStreamHandler
 public:
 	//Members
 	uint32 frameCounter;
-	CFileOutputStream *pOutput;
-	AMuxer *pMuxer;
+	FileOutputStream *pOutput;
+	Muxer *muxer;
 
 	//Constructor
 	inline CStreamHandler()
 	{
 		this->frameCounter = 0;
 		this->pOutput = nullptr;
-		this->pMuxer = nullptr;
+		this->muxer = nullptr;
 	}
 };
 
 class Prober
 {
-private:
-	//Members
-	const Path &path;
-	FileInputStream input;
-	const IFormat *pFormat;
-	ADemuxer *pDemuxer;
-	SPacket currentPacket;
-	uint32 packetCounter;
-	uint32 totalFrameCounter;
-	CMap<uint32, CStreamHandler> streams;
-
-	//Methods
-	void FlushAudioFrame(uint32 streamIndex, CAudioFrame &refFrame);
-	void FlushVideoFrame(uint32 streamIndex, CVideoFrame &refFrame);
-	void FlushDecodedFrames();
-	void FlushFrame(uint32 streamIndex, AFrame *pFrame);
-	void ProcessPacket();
-
 public:
 	//Constructor
 	Prober(const Path &refPath);
@@ -67,5 +49,38 @@ public:
 	~Prober();
 
 	//Methods
-	void Probe();
+	void Probe(bool headerOnly);
+
+private:
+	//Members
+	const Path &path;
+	FileInputStream input;
+	const Format *format;
+	Demuxer *demuxer;
+	Packet currentPacket;
+	uint32 packetCounter;
+	uint32 totalFrameCounter;
+	Map<uint32, CStreamHandler> streams;
+
+	//Methods
+	void FlushAudioFrame(uint32 streamIndex, AudioFrame &frame);
+	void FlushVideoFrame(uint32 streamIndex, CVideoFrame &refFrame);
+	void FlushDecodedFrames();
+	void FlushFrame(uint32 streamIndex, Frame *frame);
+	void PrintMetaInfo();
+	void PrintStreamInfo();
+	void ProcessPacket();
+
+	//Inline
+	inline void PrintMetaTag(const String &refKey, const String &refValue)
+	{
+		if(!refValue.IsEmpty())
+			stdOut << "  " << refKey << ": " << refValue << endl;
+	}
+
+	inline void PrintMetaTagUInt(const String &refKey, uint64 value)
+	{
+		if(value)
+			stdOut << "  " << refKey << ": " << value << endl;
+	}
 };
