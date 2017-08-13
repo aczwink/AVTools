@@ -64,7 +64,7 @@ private:
 
 	//Methods
 	void FlushAudioFrame(uint32 streamIndex, AudioFrame &frame);
-	void FlushVideoFrame(uint32 streamIndex, CVideoFrame &refFrame);
+	void FlushVideoFrame(uint32 streamIndex, VideoFrame &refFrame);
 	void FlushDecodedFrames();
 	void FlushFrame(uint32 streamIndex, Frame *frame);
 	void PrintMetaInfo();

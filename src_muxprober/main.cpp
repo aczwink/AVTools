@@ -22,7 +22,7 @@ using namespace ACStdLib::Multimedia;
 
 void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate);
 
-static void AddAudioStream(AMuxer &refMuxer)
+static void AddAudioStream(Muxer &refMuxer)
 {
 	AudioStream *pStream;
 
@@ -36,8 +36,8 @@ static void AddAudioStream(AMuxer &refMuxer)
 
 void Mux()
 {
-	const Format *pFormat;
-	AMuxer *pMuxer;
+	const Format *format;
+	Muxer *muxer;
 	Packet packet;
 	Path outputPath;
 
@@ -45,22 +45,22 @@ void Mux()
 
 	FileOutputStream file(outputPath);
 
-	pFormat = Format::FindByExtension("mkv");
+	format = Format::FindByExtension("mkv");
 
-	pMuxer = pFormat->CreateMuxer(file);
+	muxer = format->CreateMuxer(file);
 
-	AddAudioStream(*pMuxer);
+	AddAudioStream(*muxer);
 
-	pMuxer->WriteHeader();
+	muxer->WriteHeader();
 
 	//write an audio packet
 	CreateSineSound(packet, 1, 44100);
 	packet.streamIndex = 0;
-	pMuxer->WritePacket(packet);
+	muxer->WritePacket(packet);
 
-	pMuxer->Finalize();
+	muxer->Finalize();
 
-	delete pMuxer;
+	delete muxer;
 }
 
 int32 Main(const String &refProgramName, const LinkedList<String> &refArgs)

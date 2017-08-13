@@ -20,9 +20,9 @@
 #include "Prober.hpp"
 
 //Local functions
-static void PrintTime(uint64 startTime, const CFraction &refTimeScale)
+static void PrintTime(uint64 startTime, const Fraction &refTimeScale)
 {
-	if(startTime == UINT64_MAX)
+	if(startTime == Natural<uint64>::Max())
 		stdOut << "Unknown";
 	else
 		stdOut << TimeToString(startTime, refTimeScale);
@@ -74,11 +74,11 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 
 	switch(frame->GetType())
 	{
-		case EDataType::Audio:
+		case DataType::Audio:
 			this->FlushAudioFrame(streamIndex, (AudioFrame &)*frame);
 			break;
-		case EDataType::Video:
-			this->FlushVideoFrame(streamIndex, (CVideoFrame &)*frame);
+		case DataType::Video:
+			this->FlushVideoFrame(streamIndex, (VideoFrame &)*frame);
 			break;
 	}
 
@@ -90,7 +90,7 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 	this->totalFrameCounter++;
 }
 
-void Prober::FlushVideoFrame(uint32 streamIndex, CVideoFrame &refFrame)
+void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &refFrame)
 {
 	VideoStream *pStream;
 	Packet packet;
@@ -102,7 +102,7 @@ void Prober::FlushVideoFrame(uint32 streamIndex, CVideoFrame &refFrame)
 	pStream->width = refFrame.GetImage()->GetWidth();
 	pStream->height = refFrame.GetImage()->GetHeight();
 
-	pStream->SetCodec(CodecId::BGR24);
+	pStream->SetCodec(CodecId::RGB24);
 
 	//encode frame
 	Encoder *encoder = pStream->GetEncoder();
@@ -162,13 +162,13 @@ void Prober::PrintStreamInfo()
 
 		switch(stream->GetType())
 		{
-			case EDataType::Audio:
+			case DataType::Audio:
 				stdOut << "Audio" << endl;
 				break;
-			case EDataType::Subtitle:
+			case DataType::Subtitle:
 				stdOut << "Subtitle" << endl;
 				break;
-			case EDataType::Video:
+			case DataType::Video:
 				stdOut << "Video" << endl;
 				break;
 		}
@@ -179,7 +179,7 @@ void Prober::PrintStreamInfo()
 
 		//duration
 		stdOut << "    Duration: ";
-		if(stream->duration == UINT64_MAX)
+		if(stream->duration == Natural<uint64>::Max())
 			stdOut << "Unknown";
 		else
 			stdOut << TimeToString(stream->duration, stream->timeScale);
@@ -187,7 +187,7 @@ void Prober::PrintStreamInfo()
 
 		//time scale
 		stdOut << "    Time scale: ";
-		if(stream->timeScale == CFraction())
+		if(stream->timeScale == Fraction())
 		{
 			stdOut << "Unknown";
 		}
@@ -213,7 +213,7 @@ void Prober::PrintStreamInfo()
 		//type specific
 		switch(stream->GetType())
 		{
-			case EDataType::Audio:
+			case DataType::Audio:
 			{
 				AudioStream *const& refpAudioStream = (AudioStream *)stream;
 
@@ -242,14 +242,14 @@ void Prober::PrintStreamInfo()
 				stdOut << ")" << endl;
 			}
 				break;
-			case EDataType::Subtitle:
+			case DataType::Subtitle:
 			{
 				SubtitleStream *const& refpSubtitleStream = (SubtitleStream *)stream;
 			}
 				break;
-			case EDataType::Video:
+			case DataType::Video:
 			{
-				CFraction aspectRatio;
+				Fraction aspectRatio;
 
 				VideoStream *const& refpVideoStream = (VideoStream *)stream;
 
@@ -359,8 +359,8 @@ void Prober::Probe(bool headerOnly)
 	PrintTime(this->demuxer->GetStartTime(), this->demuxer->GetTimeScale());
 
 	stdOut << "End time: ";
-	uint64 endTime = UINT64_MAX;
-	if(this->demuxer->GetStartTime() != UINT64_MAX && this->demuxer->GetDuration() != UINT64_MAX)
+	uint64 endTime = Natural<uint64>::Max();
+	if(this->demuxer->GetStartTime() != Natural<uint64>::Max() && this->demuxer->GetDuration() != Natural<uint64>::Max())
 		endTime = this->demuxer->GetStartTime() + this->demuxer->GetDuration();
 	PrintTime(endTime, this->demuxer->GetTimeScale());
 
@@ -369,7 +369,7 @@ void Prober::Probe(bool headerOnly)
 
 	//time scale
 	stdOut << "Time scale: ";
-	if(this->demuxer->GetTimeScale() == CFraction())
+	if(this->demuxer->GetTimeScale() == Fraction())
 		stdOut << "Unknown";
 	else
 		stdOut << this->demuxer->GetTimeScale().numerator << " / " << this->demuxer->GetTimeScale().denominator;
@@ -408,7 +408,7 @@ void Prober::Probe(bool headerOnly)
 
 			switch(this->demuxer->GetStream(i)->GetType())
 			{
-				case EDataType::Audio:
+				case DataType::Audio:
 				{
 					AudioStream *pDestStream;
 
@@ -427,7 +427,7 @@ void Prober::Probe(bool headerOnly)
 					this->streams[i].muxer->WriteHeader();
 				}
 				break;
-				case EDataType::Video:
+				case DataType::Video:
 				{
 					dir.CreateDirectory();
 				}
