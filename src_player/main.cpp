@@ -21,12 +21,13 @@
 
 int32 Main(const String &programName, const LinkedList<String> &args)
 {
+	EventQueue &eventQueue = EventQueue::GetGlobalQueue();
 	MainWindow *mainWindow = new MainWindow;
 
 	mainWindow->Show();
 	if(!args.IsEmpty())
 		mainWindow->OpenFile(args[0]);
 
-	EventQueue::ProcessEvents();
+	eventQueue.ProcessEvents(true);
 	return EXIT_SUCCESS;
 }
