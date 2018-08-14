@@ -19,31 +19,30 @@
 //Local
 #include "Prober.hpp"
 
-int32 Main(const String &programName, const LinkedList<String> &args)
+int32 Main(const String &programName, const FixedArray<String> &args)
 {
 	bool headerOnly = false;
 
 	switch(args.GetNumberOfElements())
 	{
 		case 2:
-			if(args[0] == "-header")
+			if(args[0] == u8"-header")
 				headerOnly = true;
 			else
 				NOT_IMPLEMENTED_ERROR;
 			//fall through
 		case 1:
 		{
-			Path path;
+			Path path = args[args.GetNumberOfElements()-1];
 
-			path = args[args.GetNumberOfElements()-1];
-			if(!path.Exists())
+			if(!FileSystem::GetOSFileSystem().Exists(path))
 			{
-				stdErr << "Input file doesn't exist." << endl;
+				stdErr << u8"Input file doesn't exist." << endl;
 				return EXIT_FAILURE;
 			}
-			if(path.IsDirectory())
+			if(FileSystem::GetOSFileSystem().IsDirectory(path))
 			{
-				stdErr << "Input file is a directory." << endl;
+				stdErr << u8"Input file is a directory." << endl;
 				return EXIT_FAILURE;
 			}
 
@@ -54,11 +53,11 @@ int32 Main(const String &programName, const LinkedList<String> &args)
 		}
 	}
 
-	stdOut << "deprober is a tool for testing demuxing and decoding using ACStdLib." << endl
-		   << "It is not designed to do anything useful but aid in debugging." << endl << endl
-		   << "usage: deprober [options] container" << endl
-			<< "options can be:" << endl
-			<< "-header\t\tdisplay header info only. Skip payload..." << endl;
+	stdOut << u8"deprober is a tool for testing demuxing and decoding using Std++." << endl
+		   << u8"It is not designed to do anything useful but aid in debugging." << endl << endl
+		   << u8"usage: deprober [options] container" << endl
+			<< u8"options can be:" << endl
+			<< u8"-header\t\tdisplay header info only. Skip payload..." << endl;
 
 	return EXIT_SUCCESS;
 }

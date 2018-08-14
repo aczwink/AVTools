@@ -17,10 +17,10 @@
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <ACStdLib.hpp>
+#include <Std++.hpp>
 //Namespaces
-using namespace ACStdLib;
-using namespace ACStdLib::Multimedia;
+using namespace StdXX;
+using namespace StdXX::Multimedia;
 
 class CStreamHandler
 {

@@ -21,7 +21,7 @@
 
 int32 Main(const String &programName, const LinkedList<String> &args)
 {
-	EventQueue &eventQueue = EventQueue::GetGlobalQueue();
+	StandardEventQueue eventQueue;
 	MainWindow *mainWindow = new MainWindow;
 
 	mainWindow->Show();

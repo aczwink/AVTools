@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.hpp>
-using namespace ACStdLib;
-using namespace ACStdLib::Multimedia;
+#include <Std++.hpp>
+using namespace StdXX;
+using namespace StdXX::Multimedia;
 
 void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate)
 {

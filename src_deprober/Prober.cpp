@@ -20,12 +20,19 @@
 #include "Prober.hpp"
 
 //Local functions
-static void PrintTime(uint64 startTime, const Fraction &refTimeScale)
+static void PrintTime(uint64 t, const Fraction &timeScale)
 {
-	if(startTime == Natural<uint64>::Max())
+	Fraction timeScaleReduced = timeScale.Reduce();
+	if(t == Natural<uint64>::Max())
 		stdOut << "Unknown";
 	else
-		stdOut << TimeToString(startTime, refTimeScale);
+	{
+		Time time;
+		time = time.AddSecs(t * timeScaleReduced);
+		time = time.AddMSecs((t * timeScaleReduced.numerator) % timeScaleReduced.denominator);
+
+		stdOut << time.ToISOString();
+	}
 	stdOut << endl;
 }
 
@@ -44,17 +51,16 @@ Prober::~Prober()
 //Private methods
 void Prober::FlushAudioFrame(uint32 streamIndex, AudioFrame &frame)
 {
-	Packet packet;
-
-	this->streams[streamIndex].muxer->GetStream(0)->GetEncoder()->Encode(frame, packet);
-	this->streams[streamIndex].muxer->WritePacket(packet);
+	this->streams[streamIndex].muxer->GetStream(0)->GetEncoderContext()->Encode(frame);
+	NOT_IMPLEMENTED_ERROR; //TODO: next line
+	//this->streams[streamIndex].muxer->WritePacket(packet);
 }
 
 void Prober::FlushDecodedFrames()
 {
 	for(uint32 i = 0; i < this->demuxer->GetNumberOfStreams(); i++)
 	{
-		Decoder *const& refpDecoder = this->demuxer->GetStream(i)->GetDecoder();
+		DecoderContext *const& refpDecoder = this->demuxer->GetStream(i)->GetDecoderContext();
 		if(refpDecoder && refpDecoder->IsFrameReady())
 		{
 			this->FlushFrame(i, refpDecoder->GetNextFrame());
@@ -68,7 +74,8 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 
 	stdOut << "Frame #" << this->totalFrameCounter << ", stream frame #" << this->streams[streamIndex].frameCounter << endl;
 
-	dir = ToString((uint64)streamIndex);
+	NOT_IMPLEMENTED_ERROR; //TODO: next line
+	//dir = ToString((uint64)streamIndex);
 
 	//CFileOutputStream output(dir / ToString((uint64)this->streams[streamIndex].frameCounter));
 
@@ -99,19 +106,21 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &refFrame)
 	//create stream
 	pStream = new VideoStream;
 
-	pStream->width = refFrame.GetImage()->GetWidth();
-	pStream->height = refFrame.GetImage()->GetHeight();
+	pStream->size = refFrame.GetPixmap()->GetSize();
 
-	pStream->SetCodec(CodecId::RGB24);
+	NOT_IMPLEMENTED_ERROR; //TODO: next line
+	//pStream->SetCodec(CodecId::RGB24);
 
 	//encode frame
-	Encoder *encoder = pStream->GetEncoder();
+	EncoderContext *encoder = pStream->GetEncoderContext();
 
-	encoder->Encode(refFrame, packet);
+	encoder->Encode(refFrame);
 
 	//create file
-	dir = "stream " + ToString((uint64)streamIndex);
-	name = ToString((uint64)this->streams[streamIndex].frameCounter) + String(".bmp");
+	NOT_IMPLEMENTED_ERROR; //TODO: next line
+	//dir = "stream " + ToString((uint64)streamIndex);
+	NOT_IMPLEMENTED_ERROR; //TODO: next line
+	//name = ToString((uint64)this->streams[streamIndex].frameCounter) + String(".bmp");
 
 	FileOutputStream file(dir / name);
 
@@ -155,8 +164,8 @@ void Prober::PrintStreamInfo()
 	for(uint32 i = 0; i < this->demuxer->GetNumberOfStreams(); i++)
 	{
 		Stream *stream = this->demuxer->GetStream(i);
-		const Codec *codec = stream->GetCodec();
-		Decoder *decoder = stream->GetDecoder();
+		const CodingFormat *codingFormat = stream->GetCodingFormat();
+		DecoderContext *decoderContext = stream->GetDecoderContext();
 
 		stdOut << "Stream " << i << " - ";
 
@@ -179,11 +188,7 @@ void Prober::PrintStreamInfo()
 
 		//duration
 		stdOut << "    Duration: ";
-		if(stream->duration == Natural<uint64>::Max())
-			stdOut << "Unknown";
-		else
-			stdOut << TimeToString(stream->duration, stream->timeScale);
-		stdOut << endl;
+		PrintTime(stream->duration, stream->timeScale);
 
 		//time scale
 		stdOut << "    Time scale: ";
@@ -249,22 +254,18 @@ void Prober::PrintStreamInfo()
 				break;
 			case DataType::Video:
 			{
-				Fraction aspectRatio;
-
 				VideoStream *const& refpVideoStream = (VideoStream *)stream;
-
-				VideoDecoder *videoDecoder = (VideoDecoder *)decoder;
-				aspectRatio = refpVideoStream->GetAspectRatio();
 
 				//resolution
 				stdOut << "    Resolution: ";
-				if(refpVideoStream->width == 0 || refpVideoStream->height == 0)
+				if(refpVideoStream->size.width == 0 || refpVideoStream->size.height == 0)
 					stdOut << "Unknown";
 				else
-					stdOut << refpVideoStream->width << "x" << refpVideoStream->height;
+					stdOut << refpVideoStream->size.width << "x" << refpVideoStream->size.height;
 				stdOut << endl;
 
 				//aspect ratio
+				Fraction aspectRatio = refpVideoStream->GetAspectRatio();
 				stdOut << "    Aspect ratio: ";
 				if(aspectRatio.numerator == 0 || aspectRatio.denominator == 0)
 					stdOut << "Unknown";
@@ -272,21 +273,23 @@ void Prober::PrintStreamInfo()
 					stdOut << aspectRatio.numerator << ":" << aspectRatio.denominator;
 				stdOut << endl;
 
+				/*
+				VideoDecoder *videoDecoder = (VideoDecoder *)decoder;
 				stdOut << "    Frame pixel format: ";
 				if(decoder)
 					stdOut << ToString(videoDecoder->GetPixelFormat());
 				else
 					stdOut << "Unknown";
-				stdOut << endl;
+				stdOut << endl;*/
 			}
 				break;
 		}
 
 		//codec
-		stdOut << "    Codec: ";
-		if(codec)
+		stdOut << "    Coding format: ";
+		if(codingFormat)
 		{
-			stdOut << codec->GetName();
+			stdOut << codingFormat->GetName();
 		}
 		else
 		{
@@ -294,10 +297,17 @@ void Prober::PrintStreamInfo()
 		}
 		stdOut << endl;
 
-		if(!decoder)
+		const Decoder *decoder = decoderContext ? &decoderContext->GetDecoder() : nullptr;
+		stdOut << u8"    Decoder: ";
+		if (decoder)
 		{
-			stdOut << "    There is no decoder available!" << endl;
+			stdOut << decoder->GetName() << endl;
 		}
+		else
+		{
+			stdOut << u8"Not available." << endl;
+		}
+		stdOut << endl;
 
 		stdOut << endl;
 	}
@@ -309,7 +319,7 @@ void Prober::ProcessPacket()
 		   << "Input byte offset: " << this->input.GetCurrentOffset() << " / " << this->input.GetSize() << endl
 		   << endl;
 
-	Decoder *const& refpDecoder = this->demuxer->GetStream(this->currentPacket.streamIndex)->GetDecoder();
+	DecoderContext *const& refpDecoder = this->demuxer->GetStream(this->currentPacket.streamIndex)->GetDecoderContext();
 	if(refpDecoder)
 	{
 		refpDecoder->Decode(this->currentPacket);
@@ -397,14 +407,15 @@ void Prober::Probe(bool headerOnly)
 	//map streams
 	for(uint32 i = 0; i < this->demuxer->GetNumberOfStreams(); i++)
 	{
-		Decoder *const& refpDecoder = this->demuxer->GetStream(i)->GetDecoder();
+		DecoderContext *const& refpDecoder = this->demuxer->GetStream(i)->GetDecoderContext();
 
 		this->streams[i] = CStreamHandler();
 		if(refpDecoder)
 		{
 			Path dir;
 
-			dir = "stream " + ToString((uint64)i);
+			NOT_IMPLEMENTED_ERROR; //TODO: next line
+			//dir = "stream " + ToString((uint64)i);
 
 			switch(this->demuxer->GetStream(i)->GetType())
 			{
@@ -420,7 +431,8 @@ void Prober::Probe(bool headerOnly)
 					pDestStream = new AudioStream();
 					this->streams[i].muxer->AddStream(pDestStream);
 
-					pDestStream->SetCodec(CodecId::PCM_S16LE);
+					NOT_IMPLEMENTED_ERROR; //TODO: next line
+					//pDestStream->SetCodec(CodecId::PCM_S16LE);
 					pDestStream->nChannels = refpSourceStream->nChannels;
 					pDestStream->sampleRate = refpSourceStream->sampleRate;
 
@@ -429,7 +441,8 @@ void Prober::Probe(bool headerOnly)
 				break;
 				case DataType::Video:
 				{
-					dir.CreateDirectory();
+					NOT_IMPLEMENTED_ERROR; //TODO: next line
+					//dir.CreateDirectory();
 				}
 				break;
 			}

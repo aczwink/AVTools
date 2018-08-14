@@ -20,7 +20,7 @@
 #include "MainWindow.hpp"
 
 //Constructor
-MainWindow::MainWindow()
+MainWindow::MainWindow(EventQueue &eventQueue) : MainAppWindow(eventQueue)
 {
 	this->file = nullptr;
 	this->player = nullptr;

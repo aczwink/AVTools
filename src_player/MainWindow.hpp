@@ -16,15 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.hpp>
-using namespace ACStdLib;
-using namespace ACStdLib::UI;
+#include <Std++.hpp>
+using namespace StdXX;
+using namespace StdXX::UI;
 
 class MainWindow : public MainAppWindow
 {
 public:
 	//Constructor
-	MainWindow();
+	MainWindow(EventQueue &eventQueue);
 
 	//Destructor
 	~MainWindow();
