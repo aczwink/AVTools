@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -18,6 +18,8 @@
  */
 //Class header
 #include "MainWindow.hpp"
+//Local
+#include "StreamController.hpp"
 
 //Constructor
 MainWindow::MainWindow(EventQueue &eventQueue) : MainAppWindow(eventQueue)
@@ -25,33 +27,44 @@ MainWindow::MainWindow(EventQueue &eventQueue) : MainAppWindow(eventQueue)
 	this->file = nullptr;
 	this->player = nullptr;
 
-	this->SetTitle("Video Playback Software");
+	this->SetTitle(u8"Video Playback Software");
 
 	//Main container
-	this->SetLayout(new VerticalLayout);
+	this->GetContentContainer()->SetLayout(new VerticalLayout);
 
-	this->videoWidget = new VideoWidget(this);
+	this->videoWidget = new VideoWidget();
+	this->AddContentChild(this->videoWidget);
 
 	//Playback Control
-	GroupBox *playbackControl = new GroupBox(this);
+	GroupBox *playbackControl = new GroupBox();
+	playbackControl->SetTitle(u8"Playback control");
+	this->AddContentChild(playbackControl);
 
-	this->videoPos = new Slider(playbackControl);
+	this->videoPos = new Slider();
+	playbackControl->AddContentChild(this->videoPos);
 
 	//actions panel
-	GroupBox *actionsPanel = new GroupBox(playbackControl);
-	actionsPanel->SetLayout(new HorizontalLayout);
+	GroupBox *actionsPanel = new GroupBox();
+	actionsPanel->SetTitle(u8"Control");
+	actionsPanel->GetContentContainer()->SetLayout(new HorizontalLayout);
+	playbackControl->AddContentChild(actionsPanel);
 
-	GroupBox *groupBox = new GroupBox(actionsPanel);
-	groupBox->SetText("Video stream");
-	//new CDropDown(groupBox);
+	this->videoStreamChooser = new SelectBox;
+	this->videoStreamChooser->SetHint(u8"Video stream");
+	actionsPanel->AddContentChild(this->videoStreamChooser);
 
-	groupBox = new GroupBox(actionsPanel);
-	groupBox->SetText("Audio stream");
-	//new CDropDown(groupBox);
+	this->audioStreamChooser = new SelectBox;
+	this->audioStreamChooser->SetHint(u8"Audio stream");
+	actionsPanel->AddContentChild(this->audioStreamChooser);
 
-	this->playPauseButton = new PushButton(actionsPanel);
-	this->playPauseButton->SetText("Play");
+	this->subtitleStreamChooser = new SelectBox;
+	this->subtitleStreamChooser->SetHint(u8"Subtitle stream");
+	actionsPanel->AddContentChild(this->subtitleStreamChooser);
+	
+	this->playPauseButton = new PushButton();
+	this->playPauseButton->SetText(u8"Play");
 	this->playPauseButton->onActivatedHandler = Function<void()>(&MainWindow::TogglePlayPause, this);
+	actionsPanel->AddContentChild(this->playPauseButton);
 
 	this->UpdateControls();
 }
@@ -93,6 +106,10 @@ void MainWindow::TogglePlayPause()
 
 void MainWindow::UpdateControls()
 {
+	if(this->player)
+		this->playPauseButton->SetEnabled(true);
+	else
+		this->playPauseButton->SetEnabled(false);
 }
 
 //Public methods
@@ -100,7 +117,7 @@ void MainWindow::OpenFile(const Path &path)
 {
 	this->Reset();
 
-	if(!path.Exists())
+	if(!OSFileSystem::GetInstance().Exists(path))
 	{
 		this->ShowErrorBox("File does not exist", "Input file is not existant.");
 		return;
@@ -109,6 +126,10 @@ void MainWindow::OpenFile(const Path &path)
 	this->file = new FileInputStream(path);
 	this->player = new Multimedia::MediaPlayer(*this->file);
 	this->player->SetVideoOutput(this->videoWidget);
+
+	this->videoStreamChooser->SetController(new StreamController(this->player->GetVideoStreams(), *this->player));
+	this->audioStreamChooser->SetController(new StreamController(this->player->GetAudioStreams(), *this->player));
+	this->subtitleStreamChooser->SetController(new StreamController(this->player->GetSubtitleStreams(), *this->player));
 
 	this->UpdateControls();
 }

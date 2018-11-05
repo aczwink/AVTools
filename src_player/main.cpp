@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -19,15 +19,15 @@
 //Local
 #include "MainWindow.hpp"
 
-int32 Main(const String &programName, const LinkedList<String> &args)
+int32 Main(const String &programName, const FixedArray<String> &args)
 {
 	StandardEventQueue eventQueue;
-	MainWindow *mainWindow = new MainWindow;
 
-	mainWindow->Show();
-	if(!args.IsEmpty())
+	MainWindow *mainWindow = new MainWindow(eventQueue);
+	if (!args.IsEmpty())
 		mainWindow->OpenFile(args[0]);
+	mainWindow->Show();
 
-	eventQueue.ProcessEvents(true);
+	eventQueue.ProcessEvents();
 	return EXIT_SUCCESS;
 }

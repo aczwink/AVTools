@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -22,16 +22,18 @@
 using namespace StdXX;
 using namespace StdXX::Multimedia;
 
-class CStreamHandler
+class StreamHandler
 {
 public:
 	//Members
 	uint32 frameCounter;
+	Stream *sourceStream;
 	FileOutputStream *pOutput;
 	Muxer *muxer;
+	ComputePixmapResampler* resampler;
 
 	//Constructor
-	inline CStreamHandler()
+	inline StreamHandler(Stream *sourceStream = nullptr) : sourceStream(sourceStream), resampler(nullptr)
 	{
 		this->frameCounter = 0;
 		this->pOutput = nullptr;
@@ -45,9 +47,6 @@ public:
 	//Constructor
 	Prober(const Path &refPath);
 
-	//Destructor
-	~Prober();
-
 	//Methods
 	void Probe(bool headerOnly);
 
@@ -56,11 +55,11 @@ private:
 	const Path &path;
 	FileInputStream input;
 	const Format *format;
-	Demuxer *demuxer;
+	UniquePointer<Demuxer> demuxer;
 	Packet currentPacket;
 	uint32 packetCounter;
 	uint32 totalFrameCounter;
-	Map<uint32, CStreamHandler> streams;
+	Map<uint32, StreamHandler> streams;
 
 	//Methods
 	void FlushAudioFrame(uint32 streamIndex, AudioFrame &frame);

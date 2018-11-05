@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -40,20 +40,36 @@ static void PrintTime(uint64 t, const Fraction &timeScale)
 Prober::Prober(const Path &path) : path(path), input(path)
 {
 	this->packetCounter = 0;
-}
-
-//Destructor
-Prober::~Prober()
-{
-	delete this->demuxer;
+	this->totalFrameCounter = 0;
 }
 
 //Private methods
 void Prober::FlushAudioFrame(uint32 streamIndex, AudioFrame &frame)
 {
-	this->streams[streamIndex].muxer->GetStream(0)->GetEncoderContext()->Encode(frame);
-	NOT_IMPLEMENTED_ERROR; //TODO: next line
-	//this->streams[streamIndex].muxer->WritePacket(packet);
+	const AudioStream &sourceStream = (const AudioStream &)*this->streams[streamIndex].sourceStream;
+	const AudioBuffer *audioBuffer = frame.GetAudioBuffer();
+
+	//check if we need to resample
+	EncoderContext *encoderContext = this->streams[streamIndex].muxer->GetStream(0)->GetEncoderContext();
+	if (sourceStream.sampleFormat->sampleType != AudioSampleType::S16)
+	{
+		AudioBuffer *resampled = audioBuffer->Resample(*sourceStream.sampleFormat, AudioSampleFormat(sourceStream.sampleFormat->nChannels, AudioSampleType::S16, false));
+		AudioFrame resampledFrame(resampled);
+		resampledFrame.pts = frame.pts;
+
+		encoderContext->Encode(resampledFrame);
+	}
+	else
+	{
+		encoderContext->Encode(frame);
+	}
+
+	while (encoderContext->IsPacketReady())
+	{
+		Packet *packet = encoderContext->GetNextPacket();
+		this->streams[streamIndex].muxer->WritePacket(*packet);
+		delete packet;
+	}
 }
 
 void Prober::FlushDecodedFrames()
@@ -70,14 +86,7 @@ void Prober::FlushDecodedFrames()
 
 void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 {
-	Path dir;
-
-	stdOut << "Frame #" << this->totalFrameCounter << ", stream frame #" << this->streams[streamIndex].frameCounter << endl;
-
-	NOT_IMPLEMENTED_ERROR; //TODO: next line
-	//dir = ToString((uint64)streamIndex);
-
-	//CFileOutputStream output(dir / ToString((uint64)this->streams[streamIndex].frameCounter));
+	stdOut << u8"Frame #" << this->totalFrameCounter << u8", stream frame #" << this->streams[streamIndex].frameCounter << endl;
 
 	switch(frame->GetType())
 	{
@@ -97,39 +106,54 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 	this->totalFrameCounter++;
 }
 
-void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &refFrame)
+void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 {
-	VideoStream *pStream;
-	Packet packet;
-	Path dir, name;
+	StreamHandler& streamHandler = this->streams[streamIndex];
 
 	//create stream
-	pStream = new VideoStream;
+	VideoStream *pStream = new VideoStream;
 
-	pStream->size = refFrame.GetPixmap()->GetSize();
+	pStream->size = frame.GetPixmap()->GetSize();
+	pStream->timeScale = Fraction(1, 1);
+	pStream->SetCodingFormat(CodingFormatId::RawVideo);
+	pStream->pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
+	pStream->SetEncoderContext(pStream->GetCodingFormat()->GetBestMatchingEncoder()->CreateContext(*pStream));
 
-	NOT_IMPLEMENTED_ERROR; //TODO: next line
-	//pStream->SetCodec(CodecId::RGB24);
-
-	//encode frame
 	EncoderContext *encoder = pStream->GetEncoderContext();
 
-	encoder->Encode(refFrame);
+	if (streamHandler.resampler)
+	{
+		//resample
+		Pixmap* resampledPixmap = streamHandler.resampler->Run(*frame.GetPixmap());
+
+		VideoFrame resampledFrame(resampledPixmap);
+		resampledFrame.pts = frame.pts;
+
+		encoder->Encode(resampledFrame);
+	}
+	else
+	{
+		encoder->Encode(frame);
+	}
+	encoder->Flush();
 
 	//create file
-	NOT_IMPLEMENTED_ERROR; //TODO: next line
-	//dir = "stream " + ToString((uint64)streamIndex);
-	NOT_IMPLEMENTED_ERROR; //TODO: next line
-	//name = ToString((uint64)this->streams[streamIndex].frameCounter) + String(".bmp");
+	Path dir = u8"stream " + String::Number(streamIndex);
+	String name = String::Number(this->streams[streamIndex].frameCounter) + u8".bmp";
 
-	FileOutputStream file(dir / name);
+	FileOutputStream file(dir / name, true);
 
 	//mux
-	Muxer *muxer = Format::FindByExtension("bmp")->CreateMuxer(file);
+	Muxer *muxer = Format::FindByExtension(u8"bmp")->CreateMuxer(file);
 	muxer->AddStream(pStream);
 
 	muxer->WriteHeader();
-	muxer->WritePacket(packet);
+	while (encoder->IsPacketReady())
+	{
+		Packet *packet = encoder->GetNextPacket();
+		muxer->WritePacket(*packet);
+		delete packet;
+	}
 	muxer->Finalize();
 
 	//clean up
@@ -210,7 +234,7 @@ void Prober::PrintStreamInfo()
 		else
 			stdOut << "Bitrate: ";
 		if(stream->bitRate)
-			stdOut << FormatBitSize(stream->bitRate, 2) << "/s";
+			stdOut << String::FormatBinaryPrefixed(stream->bitRate, u8"b") << "/s";
 		else
 			stdOut << "Unknown";
 		stdOut << endl;
@@ -231,20 +255,35 @@ void Prober::PrintStreamInfo()
 
 				//channels
 				stdOut << endl
-					   << "    Channels: " << refpAudioStream->nChannels << " (";
-				switch(refpAudioStream->nChannels)
+					<< u8"    Sample format:";
+				if (refpAudioStream->sampleFormat.HasValue())
 				{
-					case 1:
-						stdOut << "Mono";
-						break;
-					case 2:
-						stdOut << "Stereo";
-						break;
-					default:
-						stdOut << "unknown";
+					stdOut << endl;
+					stdOut << u8"      Channels: " << refpAudioStream->sampleFormat->nChannels << endl;
+					stdOut << u8"      Channel Layout: " << endl;
+					for (uint8 i = 0; i < refpAudioStream->sampleFormat->nChannels; i++)
+					{
+						const auto &ch = refpAudioStream->sampleFormat->channels[i];
+						stdOut << u8"        " << i + 1 << u8":";
+						switch (ch.speaker)
+						{
+						case SpeakerPosition::Front_Left:
+							stdOut << u8"Front left";
+							break;
+						case SpeakerPosition::Front_Right:
+							stdOut << u8"Front right";
+							break;
+						case SpeakerPosition::Front_Center:
+							stdOut << u8"Front center";
+							break;
+						default:
+							NOT_IMPLEMENTED_ERROR;
+						}
+						stdOut << endl;
+					}
 				}
-
-				stdOut << ")" << endl;
+				else
+					stdOut << u8"Unknown" << endl;
 			}
 				break;
 			case DataType::Subtitle:
@@ -273,9 +312,37 @@ void Prober::PrintStreamInfo()
 					stdOut << aspectRatio.numerator << ":" << aspectRatio.denominator;
 				stdOut << endl;
 
+				//pixel format
+				stdOut << u8"    Frame pixel format: ";
+				if (refpVideoStream->pixelFormat.HasValue())
+				{
+					stdOut << endl;
+					stdOut << u8"        Number of planes: " << refpVideoStream->pixelFormat->nPlanes << endl;
+					stdOut << u8"        Color space: ";
+
+					switch (refpVideoStream->pixelFormat->colorSpace)
+					{
+					case ColorSpace::RGB:
+						stdOut << u8"RGB";
+						break;
+					case ColorSpace::RGBA:
+						stdOut << u8"RGBA";
+						break;
+					case ColorSpace::YCbCr:
+						stdOut << u8"YCbCr";
+						break;
+					default:
+						stdOut << u8"Unknown";
+					}
+					stdOut << endl;
+				}
+				else
+				{
+					stdOut << u8"Unknown" << endl;
+				}
+
 				/*
 				VideoDecoder *videoDecoder = (VideoDecoder *)decoder;
-				stdOut << "    Frame pixel format: ";
 				if(decoder)
 					stdOut << ToString(videoDecoder->GetPixelFormat());
 				else
@@ -352,7 +419,7 @@ void Prober::Probe(bool headerOnly)
 
 	//get demuxer
 	this->demuxer = this->format->CreateDemuxer(this->input);
-	if(!this->demuxer)
+	if(this->demuxer.IsNull())
 	{
 		stdErr << "No demuxer is available for the input format." << endl;
 		return;
@@ -388,7 +455,7 @@ void Prober::Probe(bool headerOnly)
 	//Bitrate
 	stdOut << "Bitrate: ";
 	if(this->demuxer->GetBitRate())
-		stdOut << FormatBitSize(this->demuxer->GetBitRate(), 2) << "/s";
+		stdOut << String::FormatBinaryPrefixed(this->demuxer->GetBitRate(), u8"b") << "/s";
 	else
 		stdOut << "Unknown";
 	stdOut << endl;
@@ -407,42 +474,50 @@ void Prober::Probe(bool headerOnly)
 	//map streams
 	for(uint32 i = 0; i < this->demuxer->GetNumberOfStreams(); i++)
 	{
-		DecoderContext *const& refpDecoder = this->demuxer->GetStream(i)->GetDecoderContext();
+		Stream *sourceStream = this->demuxer->GetStream(i);
+		DecoderContext *const& refpDecoder = sourceStream->GetDecoderContext();
 
-		this->streams[i] = CStreamHandler();
+		this->streams[i] = StreamHandler(sourceStream);
 		if(refpDecoder)
 		{
-			Path dir;
-
-			NOT_IMPLEMENTED_ERROR; //TODO: next line
-			//dir = "stream " + ToString((uint64)i);
+			String dir = u8"stream " + String::Number(i);
 
 			switch(this->demuxer->GetStream(i)->GetType())
 			{
 				case DataType::Audio:
 				{
-					AudioStream *pDestStream;
-
 					AudioStream *const& refpSourceStream = (AudioStream *)this->demuxer->GetStream(i);
 
-					this->streams[i].pOutput = new FileOutputStream(dir + String(".wav"));
+					this->streams[i].pOutput = new FileOutputStream(dir + String(".wav"), true);
 					this->streams[i].muxer = Format::FindByExtension("wav")->CreateMuxer(*this->streams[i].pOutput);
 
-					pDestStream = new AudioStream();
+					AudioStream *pDestStream = new AudioStream();
 					this->streams[i].muxer->AddStream(pDestStream);
 
-					NOT_IMPLEMENTED_ERROR; //TODO: next line
-					//pDestStream->SetCodec(CodecId::PCM_S16LE);
-					pDestStream->nChannels = refpSourceStream->nChannels;
+					pDestStream->timeScale = refpSourceStream->timeScale;
+
+					pDestStream->SetCodingFormat(CodingFormatId::PCM_S16LE);
+					pDestStream->sampleFormat = AudioSampleFormat(refpSourceStream->sampleFormat->nChannels, AudioSampleType::S16, false);
 					pDestStream->sampleRate = refpSourceStream->sampleRate;
+
+					//setup encoder
+					const Encoder *encoder = pDestStream->GetCodingFormat()->GetBestMatchingEncoder();
+					pDestStream->SetEncoderContext(encoder->CreateContext(*pDestStream));
 
 					this->streams[i].muxer->WriteHeader();
 				}
 				break;
 				case DataType::Video:
 				{
-					NOT_IMPLEMENTED_ERROR; //TODO: next line
-					//dir.CreateDirectory();
+					VideoStream *const& sourceStream = dynamic_cast<VideoStream *>(this->demuxer->GetStream(i));
+
+					OSFileSystem::GetInstance().GetDirectory(OSFileSystem::GetInstance().GetWorkingDirectory())->CreateSubDirectory(dir);
+
+					if (*sourceStream->pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
+					{
+						this->streams[i].resampler = new ComputePixmapResampler(sourceStream->size, *sourceStream->pixelFormat);
+						this->streams[i].resampler->ChangePixelFormat(PixelFormat(NamedPixelFormat::BGR_24));
+					}
 				}
 				break;
 			}
@@ -472,6 +547,7 @@ void Prober::Probe(bool headerOnly)
 			this->streams[i].muxer->Finalize();
 			delete this->streams[i].muxer;
 			delete this->streams[i].pOutput;
+			delete this->streams[i].resampler;
 		}
 	}
 }

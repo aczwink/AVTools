@@ -22,5 +22,5 @@ target_link_libraries(deprober ${LIBS})
 #add_executable(muxprober ${SOURCE_FILES_MUXPROBER})
 #target_link_libraries(muxprober ${LIBS})
 
-#add_executable(player ${SOURCE_FILES_PLAYER})
-#target_link_libraries(player ${LIBS})
+add_executable(player ${SOURCE_FILES_PLAYER})
+target_link_libraries(player ${LIBS})

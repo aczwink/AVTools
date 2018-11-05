@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -36,6 +36,9 @@ private:
 	//Members
 	VideoWidget *videoWidget;
 	Slider *videoPos;
+	SelectBox* videoStreamChooser;
+	SelectBox* audioStreamChooser;
+	SelectBox* subtitleStreamChooser;
 	PushButton *playPauseButton;
 
 	FileInputStream *file;
