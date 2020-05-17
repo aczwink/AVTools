@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <Std++.hpp>
+#include <StdXX.hpp>
 using namespace StdXX;
 using namespace StdXX::UI;
 
@@ -30,7 +30,7 @@ public:
 	~MainWindow();
 
 	//Methods
-	void OpenFile(const Path &path);
+	void OpenFile(const FileSystem::Path &path);
 
 private:
 	//Members

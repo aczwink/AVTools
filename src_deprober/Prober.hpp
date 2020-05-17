@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -17,7 +17,7 @@
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <Std++.hpp>
+#include <StdXX.hpp>
 //Namespaces
 using namespace StdXX;
 using namespace StdXX::Multimedia;
@@ -45,18 +45,18 @@ class Prober
 {
 public:
 	//Constructor
-	Prober(const Path &refPath);
+	Prober(const FileSystem::Path &refPath);
 
 	//Methods
 	void Probe(bool headerOnly);
 
 private:
 	//Members
-	const Path &path;
+	const FileSystem::Path &path;
 	FileInputStream input;
 	const Format *format;
 	UniquePointer<Demuxer> demuxer;
-	Packet currentPacket;
+	UniquePointer<IPacket> currentPacket;
 	uint32 packetCounter;
 	uint32 totalFrameCounter;
 	Map<uint32, StreamHandler> streams;

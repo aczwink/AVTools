@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -20,16 +20,21 @@
 #include "Prober.hpp"
 
 //Local functions
-static void PrintTime(uint64 t, const Fraction &timeScale)
+static void PrintTime(uint64 t, const TimeScale &timeScale)
 {
-	Fraction timeScaleReduced = timeScale.Reduce();
-	if(t == Natural<uint64>::Max())
+	Math::Rational<uint64> timeScaleReduced = timeScale.Reduce();
+	if(t == Unsigned<uint64>::Max())
 		stdOut << "Unknown";
 	else
 	{
+		const uint64 seconds = (t * timeScaleReduced).RoundDown();
+		const uint64 fractionalSeconds = (t * timeScaleReduced.numerator) % timeScaleReduced.denominator;
+		TimeScale fractionalTimeScale = {1, timeScaleReduced.denominator};
+		TimeScale nanoSecondsTimeScale = {1, 1000000000 };
+
 		Time time;
-		time = time.AddSecs(t * timeScaleReduced);
-		time = time.AddMSecs((t * timeScaleReduced.numerator) % timeScaleReduced.denominator);
+		time = time.AddSecs( seconds );
+		time = time.AddNanoseconds(fractionalTimeScale.Rescale(fractionalSeconds, nanoSecondsTimeScale));
 
 		stdOut << time.ToISOString();
 	}
@@ -37,7 +42,7 @@ static void PrintTime(uint64 t, const Fraction &timeScale)
 }
 
 //Constructor
-Prober::Prober(const Path &path) : path(path), input(path)
+Prober::Prober(const FileSystem::Path &path) : path(path), input(path)
 {
 	this->packetCounter = 0;
 	this->totalFrameCounter = 0;
@@ -114,7 +119,7 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 	VideoStream *pStream = new VideoStream;
 
 	pStream->size = frame.GetPixmap()->GetSize();
-	pStream->timeScale = Fraction(1, 1);
+	pStream->timeScale = TimeScale(1, 1);
 	pStream->SetCodingFormat(CodingFormatId::RawVideo);
 	pStream->pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
 	pStream->SetEncoderContext(pStream->GetCodingFormat()->GetBestMatchingEncoder()->CreateContext(*pStream));
@@ -138,7 +143,7 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 	encoder->Flush();
 
 	//create file
-	Path dir = u8"stream " + String::Number(streamIndex);
+	FileSystem::Path dir = u8"stream " + String::Number(streamIndex);
 	String name = String::Number(this->streams[streamIndex].frameCounter) + u8".bmp";
 
 	FileOutputStream file(dir / name, true);
@@ -216,7 +221,7 @@ void Prober::PrintStreamInfo()
 
 		//time scale
 		stdOut << "    Time scale: ";
-		if(stream->timeScale == Fraction())
+		if(stream->timeScale == Math::Rational<uint64>())
 		{
 			stdOut << "Unknown";
 		}
@@ -255,7 +260,7 @@ void Prober::PrintStreamInfo()
 
 				//channels
 				stdOut << endl
-					<< u8"    Sample format:";
+					<< u8"    Sample format: ";
 				if (refpAudioStream->sampleFormat.HasValue())
 				{
 					stdOut << endl;
@@ -304,7 +309,7 @@ void Prober::PrintStreamInfo()
 				stdOut << endl;
 
 				//aspect ratio
-				Fraction aspectRatio = refpVideoStream->GetAspectRatio();
+				Math::Rational<uint16> aspectRatio = refpVideoStream->GetAspectRatio();
 				stdOut << "    Aspect ratio: ";
 				if(aspectRatio.numerator == 0 || aspectRatio.denominator == 0)
 					stdOut << "Unknown";
@@ -383,13 +388,13 @@ void Prober::PrintStreamInfo()
 void Prober::ProcessPacket()
 {
 	stdOut << "Packet #" << this->packetCounter << endl
-		   << "Input byte offset: " << this->input.GetCurrentOffset() << " / " << this->input.GetSize() << endl
+		   << "Input byte offset: " << this->input.GetCurrentOffset() << " / " << this->input.QuerySize() << endl
 		   << endl;
 
-	DecoderContext *const& refpDecoder = this->demuxer->GetStream(this->currentPacket.streamIndex)->GetDecoderContext();
+	DecoderContext *const& refpDecoder = this->demuxer->GetStream(this->currentPacket->GetStreamIndex())->GetDecoderContext();
 	if(refpDecoder)
 	{
-		refpDecoder->Decode(this->currentPacket);
+		refpDecoder->Decode(*this->currentPacket);
 	}
 }
 
@@ -433,23 +438,23 @@ void Prober::Probe(bool headerOnly)
 
 	stdOut << endl;
 	stdOut << "Start time: ";
-	PrintTime(this->demuxer->GetStartTime(), this->demuxer->GetTimeScale());
+	PrintTime(this->demuxer->GetStartTime(), this->demuxer->TimeScale());
 
 	stdOut << "End time: ";
-	uint64 endTime = Natural<uint64>::Max();
-	if(this->demuxer->GetStartTime() != Natural<uint64>::Max() && this->demuxer->GetDuration() != Natural<uint64>::Max())
+	uint64 endTime = Unsigned<uint64>::Max();
+	if(this->demuxer->GetStartTime() != Unsigned<uint64>::Max() && this->demuxer->GetDuration() != Unsigned<uint64>::Max())
 		endTime = this->demuxer->GetStartTime() + this->demuxer->GetDuration();
-	PrintTime(endTime, this->demuxer->GetTimeScale());
+	PrintTime(endTime, this->demuxer->TimeScale());
 
 	stdOut << "Duration: ";
-	PrintTime(this->demuxer->GetDuration(), this->demuxer->GetTimeScale());
+	PrintTime(this->demuxer->GetDuration(), this->demuxer->TimeScale());
 
 	//time scale
 	stdOut << "Time scale: ";
-	if(this->demuxer->GetTimeScale() == Fraction())
+	if(this->demuxer->TimeScale() == Math::Rational<uint64>())
 		stdOut << "Unknown";
 	else
-		stdOut << this->demuxer->GetTimeScale().numerator << " / " << this->demuxer->GetTimeScale().denominator;
+		stdOut << this->demuxer->TimeScale().numerator << " / " << this->demuxer->TimeScale().denominator;
 	stdOut << endl;
 
 	//Bitrate
@@ -511,7 +516,7 @@ void Prober::Probe(bool headerOnly)
 				{
 					VideoStream *const& sourceStream = dynamic_cast<VideoStream *>(this->demuxer->GetStream(i));
 
-					OSFileSystem::GetInstance().GetDirectory(OSFileSystem::GetInstance().GetWorkingDirectory())->CreateSubDirectory(dir);
+					FileSystem::OSFileSystem::GetInstance().GetDirectory(FileSystem::OSFileSystem::GetInstance().GetWorkingDirectory())->CreateSubDirectory(dir);
 
 					if (*sourceStream->pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
 					{
@@ -529,7 +534,8 @@ void Prober::Probe(bool headerOnly)
 	{
 		this->FlushDecodedFrames();
 
-		if(!this->demuxer->ReadFrame(this->currentPacket))
+		this->currentPacket = this->demuxer->ReadFrame();
+		if(this->currentPacket.IsNull())
 		{
 			stdOut << "End of input" << endl;
 			break;

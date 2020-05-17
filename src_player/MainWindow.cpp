@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -32,7 +32,10 @@ MainWindow::MainWindow(EventQueue &eventQueue) : MainAppWindow(eventQueue)
 	//Main container
 	this->GetContentContainer()->SetLayout(new VerticalLayout);
 
-	this->videoWidget = new VideoWidget();
+	WidgetFrameBufferSetup frameBufferSetup;
+	frameBufferSetup.nSamples = 1;
+
+	this->videoWidget = new VideoWidget(frameBufferSetup);
 	this->AddContentChild(this->videoWidget);
 
 	//Playback Control
@@ -106,18 +109,16 @@ void MainWindow::TogglePlayPause()
 
 void MainWindow::UpdateControls()
 {
-	if(this->player)
-		this->playPauseButton->SetEnabled(true);
-	else
-		this->playPauseButton->SetEnabled(false);
+	this->playPauseButton->SetEnabled(this->player != nullptr);
 }
 
 //Public methods
-void MainWindow::OpenFile(const Path &path)
+void MainWindow::OpenFile(const FileSystem::Path &path)
 {
+	return;
 	this->Reset();
 
-	if(!OSFileSystem::GetInstance().Exists(path))
+	if(!FileSystem::OSFileSystem::GetInstance().Exists(path))
 	{
 		this->ShowErrorBox("File does not exist", "Input file is not existant.");
 		return;

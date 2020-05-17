@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,8 +16,9 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <Std++.hpp>
+#include <StdXX.hpp>
 using namespace StdXX;
+using namespace StdXX::Type;
 using namespace StdXX::UI;
 
 template<typename StreamType>
@@ -81,7 +82,7 @@ private:
 	//Event handlers
 	void OnSelectionChanged() const override
 	{
-		auto it = this->GetIteratorAt(this->view->GetSelectionController().GetSelectedIndexes().GetFront().GetRow());
+		auto it = this->GetIteratorAt(this->view->SelectionController().GetSelectedIndexes().GetFront().GetRow());
 		this->SetStreamIndex((*it).key);
 	}
 
