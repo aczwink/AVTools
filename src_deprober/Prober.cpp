@@ -118,11 +118,11 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 	//create stream
 	VideoStream *pStream = new VideoStream;
 
-	pStream->size = frame.GetPixmap()->GetSize();
+	pStream->codingParameters.video.size = frame.GetPixmap()->GetSize();
 	pStream->timeScale = TimeScale(1, 1);
 	pStream->SetCodingFormat(CodingFormatId::RawVideo);
 	pStream->pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
-	pStream->SetEncoderContext(pStream->GetCodingFormat()->GetBestMatchingEncoder()->CreateContext(*pStream));
+	pStream->SetEncoderContext(pStream->codingParameters.codingFormat->GetBestMatchingEncoder()->CreateContext(*pStream));
 
 	EncoderContext *encoder = pStream->GetEncoderContext();
 
@@ -193,12 +193,12 @@ void Prober::PrintStreamInfo()
 	for(uint32 i = 0; i < this->demuxer->GetNumberOfStreams(); i++)
 	{
 		Stream *stream = this->demuxer->GetStream(i);
-		const CodingFormat *codingFormat = stream->GetCodingFormat();
+		const CodingFormat *codingFormat = stream->codingParameters.codingFormat;
 		DecoderContext *decoderContext = stream->GetDecoderContext();
 
 		stdOut << "Stream " << i << " - ";
 
-		switch(stream->GetType())
+		switch(stream->codingParameters.dataType)
 		{
 			case DataType::Audio:
 				stdOut << "Audio" << endl;
@@ -232,20 +232,24 @@ void Prober::PrintStreamInfo()
 		stdOut << endl;
 
 		//Bit rate
-		stdOut << "    Bitrate mode: " << (stream->vbr ? "Variable (VBR)" : "Constant (CBR)") << endl;
-		stdOut << "    ";
-		if(stream->vbr)
+		stdOut << "    Bitrate mode: ";
+		if(stream->codingParameters.vbr.HasValue())
+			 stdOut << (*stream->codingParameters.vbr ? "Variable (VBR)" : "Constant (CBR)");
+		else
+			stdOut << u8"Unknown";
+		stdOut << endl << "    ";
+		if(stream->codingParameters.vbr.HasValue() and *stream->codingParameters.vbr)
 			stdOut << "Average bitrate: ";
 		else
 			stdOut << "Bitrate: ";
-		if(stream->bitRate)
-			stdOut << String::FormatBinaryPrefixed(stream->bitRate, u8"b") << "/s";
+		if(stream->codingParameters.bitRate)
+			stdOut << String::FormatBinaryPrefixed(stream->codingParameters.bitRate, u8"b") << "/s";
 		else
 			stdOut << "Unknown";
 		stdOut << endl;
 
 		//type specific
-		switch(stream->GetType())
+		switch(stream->codingParameters.dataType)
 		{
 			case DataType::Audio:
 			{
@@ -253,10 +257,10 @@ void Prober::PrintStreamInfo()
 
 				//sample rate
 				stdOut << "    Sample rate: ";
-				if(refpAudioStream->sampleRate == 0)
+				if(refpAudioStream->codingParameters.audio.sampleRate == 0)
 					stdOut << "Unknown";
 				else
-					stdOut << refpAudioStream->sampleRate << " Hz";
+					stdOut << refpAudioStream->codingParameters.audio.sampleRate << " Hz";
 
 				//channels
 				stdOut << endl
@@ -281,6 +285,15 @@ void Prober::PrintStreamInfo()
 						case SpeakerPosition::Front_Center:
 							stdOut << u8"Front center";
 							break;
+						case SpeakerPosition::LowFrequency:
+							stdOut << u8"Low frequency";
+							break;
+						case SpeakerPosition::Side_Left:
+							stdOut << u8"Side left";
+							break;
+						case SpeakerPosition::Side_Right:
+							stdOut << u8"Side right";
+							break;
 						default:
 							NOT_IMPLEMENTED_ERROR;
 						}
@@ -302,10 +315,10 @@ void Prober::PrintStreamInfo()
 
 				//resolution
 				stdOut << "    Resolution: ";
-				if(refpVideoStream->size.width == 0 || refpVideoStream->size.height == 0)
+				if(refpVideoStream->codingParameters.video.size.width == 0 || refpVideoStream->codingParameters.video.size.height == 0)
 					stdOut << "Unknown";
 				else
-					stdOut << refpVideoStream->size.width << "x" << refpVideoStream->size.height;
+					stdOut << refpVideoStream->codingParameters.video.size.width << "x" << refpVideoStream->codingParameters.video.size.height;
 				stdOut << endl;
 
 				//aspect ratio
@@ -487,7 +500,7 @@ void Prober::Probe(bool headerOnly)
 		{
 			String dir = u8"stream " + String::Number(i);
 
-			switch(this->demuxer->GetStream(i)->GetType())
+			switch(this->demuxer->GetStream(i)->codingParameters.dataType)
 			{
 				case DataType::Audio:
 				{
@@ -503,10 +516,10 @@ void Prober::Probe(bool headerOnly)
 
 					pDestStream->SetCodingFormat(CodingFormatId::PCM_S16LE);
 					pDestStream->sampleFormat = AudioSampleFormat(refpSourceStream->sampleFormat->nChannels, AudioSampleType::S16, false);
-					pDestStream->sampleRate = refpSourceStream->sampleRate;
+					pDestStream->codingParameters.audio.sampleRate = refpSourceStream->codingParameters.audio.sampleRate;
 
 					//setup encoder
-					const Encoder *encoder = pDestStream->GetCodingFormat()->GetBestMatchingEncoder();
+					const Encoder *encoder = pDestStream->codingParameters.codingFormat->GetBestMatchingEncoder();
 					pDestStream->SetEncoderContext(encoder->CreateContext(*pDestStream));
 
 					this->streams[i].muxer->WriteHeader();
@@ -520,7 +533,7 @@ void Prober::Probe(bool headerOnly)
 
 					if (*sourceStream->pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
 					{
-						this->streams[i].resampler = new ComputePixmapResampler(sourceStream->size, *sourceStream->pixelFormat);
+						this->streams[i].resampler = new ComputePixmapResampler(sourceStream->codingParameters.video.size, *sourceStream->pixelFormat);
 						this->streams[i].resampler->ChangePixelFormat(PixelFormat(NamedPixelFormat::BGR_24));
 					}
 				}

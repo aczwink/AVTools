@@ -24,7 +24,7 @@ class MainWindow : public MainAppWindow
 {
 public:
 	//Constructor
-	MainWindow(EventQueue &eventQueue);
+	MainWindow(EventHandling::EventQueue &eventQueue);
 
 	//Destructor
 	~MainWindow();

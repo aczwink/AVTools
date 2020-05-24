@@ -22,7 +22,7 @@
 #include "StreamController.hpp"
 
 //Constructor
-MainWindow::MainWindow(EventQueue &eventQueue) : MainAppWindow(eventQueue)
+MainWindow::MainWindow(EventHandling::EventQueue &eventQueue) : MainAppWindow(eventQueue)
 {
 	this->file = nullptr;
 	this->player = nullptr;
@@ -115,7 +115,6 @@ void MainWindow::UpdateControls()
 //Public methods
 void MainWindow::OpenFile(const FileSystem::Path &path)
 {
-	return;
 	this->Reset();
 
 	if(!FileSystem::OSFileSystem::GetInstance().Exists(path))

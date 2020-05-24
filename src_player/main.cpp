@@ -21,9 +21,9 @@
 
 int32 Main(const String &programName, const FixedArray<String> &args)
 {
-	StandardEventQueue eventQueue;
-
+	EventHandling::StandardEventQueue eventQueue;
 	MainWindow *mainWindow = new MainWindow(eventQueue);
+
 	if (!args.IsEmpty())
 		mainWindow->OpenFile(args[0]);
 	mainWindow->Show();
