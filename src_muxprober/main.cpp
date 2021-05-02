@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017,2021 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,44 +16,35 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <Std++.hpp>
-using namespace ACStdLib;
-using namespace ACStdLib::Multimedia;
+#include <StdXX.hpp>
+using namespace StdXX;
+using namespace StdXX::Multimedia;
 
 void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate);
 
-static void AddAudioStream(Muxer &refMuxer)
+static void AddAudioStream(Muxer& muxer)
 {
-	AudioStream *pStream;
+	AudioStream* stream = new AudioStream;
+	muxer.AddStream(stream);
 
-	pStream = new AudioStream;
-	refMuxer.AddStream(pStream);
-
-	pStream->SetCodec(CodecId::PCM_Float32LE);
-	pStream->nChannels = 1;
-	pStream->sampleRate = 44100;
+	stream->SetCodingFormat(CodingFormatId::PCM_Float32LE);
+	stream->sampleFormat = AudioSampleFormat(1, AudioSampleType::Float, false);
+	stream->codingParameters.audio.sampleRate = 44100;
 }
 
-void Mux()
+void Mux(const FileSystem::Path& outputPath)
 {
-	const Format *format;
-	Muxer *muxer;
-	Packet packet;
-	Path outputPath;
-
-	outputPath = "muxprober_out.mkv";
-
 	FileOutputStream file(outputPath);
 
-	format = Format::FindByExtension("mkv");
-
-	muxer = format->CreateMuxer(file);
+	const Format* format = Format::FindByExtension(outputPath.GetFileExtension());
+	Muxer* muxer = format->CreateMuxer(file);
 
 	AddAudioStream(*muxer);
 
 	muxer->WriteHeader();
 
 	//write an audio packet
+	Packet packet;
 	CreateSineSound(packet, 1, 44100);
 	packet.streamIndex = 0;
 	muxer->WritePacket(packet);
@@ -63,9 +54,9 @@ void Mux()
 	delete muxer;
 }
 
-int32 Main(const String &refProgramName, const LinkedList<String> &refArgs)
+int32 Main(const String& programName, const FixedArray<String>& args)
 {
-	Mux();
+	Mux(args[0]);
 
 	return EXIT_SUCCESS;
 }
