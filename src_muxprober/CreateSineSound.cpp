@@ -22,20 +22,17 @@ using namespace StdXX::Multimedia;
 
 void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate)
 {
-	uint32 nSamplesPerChannel, nSamples, i;
-	float32 *pCurrent;
-
 	const float32 frequency = 440; //A 440 Hz
 	const uint32 duration = 1; //seconds
 
-	nSamplesPerChannel = duration * sampleRate;
-	nSamples = nSamplesPerChannel * nChannels;
+	uint32 nSamplesPerChannel = duration * sampleRate;
+	uint32 nSamples = nSamplesPerChannel * nChannels;
 
 	packet.Allocate(nSamples * sizeof(float32));
 
-	pCurrent = (float32 *)packet.GetData();
-	for(i = 0; i < nSamples; i++)
+	float32* current = (float32 *)packet.GetData();
+	for(uint32 i = 0; i < nSamples; i++)
 	{
-		*pCurrent++ = (float32)sin(i * (2.0 * PI * frequency) / sampleRate);
+		*current++ = (float32)sin(i * (2.0 * PI * frequency) / sampleRate);
 	}
 }
