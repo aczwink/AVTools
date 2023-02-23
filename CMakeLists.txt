@@ -15,6 +15,7 @@ set(LIBS Std++ Std++Static)
 add_subdirectory(src_deprober)
 add_subdirectory(src_muxprober)
 add_subdirectory(src_player)
+add_subdirectory(src_transcoder)
 
 add_executable(deprober ${SOURCE_FILES_DEPROBER})
 target_link_libraries(deprober ${LIBS})
@@ -24,3 +25,6 @@ target_link_libraries(muxprober ${LIBS})
 
 add_executable(player ${SOURCE_FILES_PLAYER})
 target_link_libraries(player ${LIBS})
+
+add_executable(transcoder ${SOURCE_FILES_TRANSCODER})
+target_link_libraries(transcoder ${LIBS})
