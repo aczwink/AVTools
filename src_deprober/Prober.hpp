@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -59,7 +59,7 @@ private:
 	UniquePointer<IPacket> currentPacket;
 	uint32 packetCounter;
 	uint32 totalFrameCounter;
-	Map<uint32, StreamHandler> streams;
+	BinaryTreeMap<uint32, StreamHandler> streams;
 
 	//Methods
 	void FlushAudioFrame(uint32 streamIndex, AudioFrame &frame);

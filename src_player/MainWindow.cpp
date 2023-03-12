@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -117,7 +117,8 @@ void MainWindow::OpenFile(const FileSystem::Path &path)
 {
 	this->Reset();
 
-	if(!FileSystem::OSFileSystem::GetInstance().Exists(path))
+	FileSystem::File file(path);
+	if(!file.Exists())
 	{
 		this->ShowErrorBox("File does not exist", "Input file is not existant.");
 		return;

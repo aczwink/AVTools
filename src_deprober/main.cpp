@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -33,14 +33,15 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 			//fall through
 		case 1:
 		{
-			FileSystem::Path path = FileSystem::OSFileSystem::GetInstance().FromNativePath(args[args.GetNumberOfElements()-1]);
+			FileSystem::Path path = FileSystem::FileSystemsManager::Instance().OSFileSystem().FromNativePath(args[args.GetNumberOfElements()-1]);
+			FileSystem::File file(path);
 
-			if(!FileSystem::OSFileSystem::GetInstance().Exists(path))
+			if(!file.Exists())
 			{
 				stdErr << u8"Input file doesn't exist." << endl;
 				return EXIT_FAILURE;
 			}
-			if(FileSystem::OSFileSystem::GetInstance().IsDirectory(path))
+			if(file.Type() == FileSystem::FileType::Directory)
 			{
 				stdErr << u8"Input file is a directory." << endl;
 				return EXIT_FAILURE;

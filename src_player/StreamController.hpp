@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -21,13 +21,14 @@ using namespace StdXX;
 using namespace StdXX::Type;
 using namespace StdXX::UI;
 
-template<typename StreamType>
 class StreamController : public ListController
 {
 public:
 	//Constructor
-	inline StreamController(const Map<uint32, StreamType*>& streams, Multimedia::MediaPlayer& player) : streams(streams), player(player)
+	inline StreamController(const BinaryTreeMap<uint32, Multimedia::Stream*>& streams, Multimedia::MediaPlayer& player) : streams(streams), player(player)
 	{
+		if(!streams.IsEmpty())
+			this->dataType = (*streams.begin()).value->codingParameters.dataType;
 	}
 
 	//Methods
@@ -38,53 +39,33 @@ public:
 	
 	String GetText(uint32 index) const override
 	{
-		auto it = this->GetIteratorAt(index);
+		auto it = this->streams.begin();
+		while (index--)
+			++it;
 		return String::Number((*it).key);
 	}
 
 private:
 	//Members
-	const Map<uint32, StreamType*>& streams;
+	Multimedia::DataType dataType;
+	const BinaryTreeMap<uint32, Multimedia::Stream*>& streams;
 	Multimedia::MediaPlayer& player;
 
 	//Methods
-	template <typename T = StreamType>
-	typename EnableIf<IsSameType<T, Multimedia::AudioStream>::value>::type
-		SetStreamIndex(uint32 index) const
+	void SetStreamIndex(uint32 index) const
 	{
-		this->player.SetAudioStreamIndex(index);
-	}
-
-	template <typename T = StreamType>
-	typename EnableIf<IsSameType<T, Multimedia::SubtitleStream>::value>::type
-		SetStreamIndex(uint32 index) const
-	{
-		//TODO
-		//this->player.SetSubtitleStreamIndex(index);
-	}
-
-	template <typename T = StreamType>
-	typename EnableIf<IsSameType<T, Multimedia::VideoStream>::value>::type
-		SetStreamIndex(uint32 index) const
-	{
-		this->player.SetVideoStreamIndex(index);
-	}
-
-	//Inline
-	auto GetIteratorAt(uint32 index) const
-	{
-		auto it = this->streams.begin();
-		while (index--)
-			++it;
-		return it;
+		if(this->dataType == Multimedia::DataType::Audio)
+			this->player.SetAudioStreamIndex(index);
+		else if(this->dataType == Multimedia::DataType::Video)
+			this->player.SetVideoStreamIndex(index);
 	}
 
 	//Event handlers
-	void OnSelectionChanged() const override
+	/*void OnSelectionChanged() const override
 	{
 		auto it = this->GetIteratorAt(this->view->SelectionController().GetSelectedIndexes().GetFront().GetRow());
 		this->SetStreamIndex((*it).key);
-	}
+	}*/
 
 	void OnViewChanged() override
 	{

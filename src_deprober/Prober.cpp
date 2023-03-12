@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -27,7 +27,7 @@ static void PrintTime(uint64 t, const TimeScale &timeScale)
 		stdOut << "Unknown";
 	else
 	{
-		const uint64 seconds = (t * timeScaleReduced).RoundDown();
+		const uint64 seconds = (t * timeScaleReduced).DivideAndRoundDown();
 		const uint64 fractionalSeconds = (t * timeScaleReduced.numerator) % timeScaleReduced.denominator;
 		TimeScale fractionalTimeScale = {1, timeScaleReduced.denominator};
 		TimeScale nanoSecondsTimeScale = {1, 1000000000 };
@@ -51,14 +51,14 @@ Prober::Prober(const FileSystem::Path &path) : path(path), input(path)
 //Private methods
 void Prober::FlushAudioFrame(uint32 streamIndex, AudioFrame &frame)
 {
-	const AudioStream &sourceStream = (const AudioStream &)*this->streams[streamIndex].sourceStream;
+	const Stream &sourceStream = *this->streams[streamIndex].sourceStream;
 	const AudioBuffer *audioBuffer = frame.GetAudioBuffer();
 
 	//check if we need to resample
 	EncoderContext *encoderContext = this->streams[streamIndex].muxer->GetStream(0)->GetEncoderContext();
-	if (sourceStream.sampleFormat->sampleType != AudioSampleType::S16)
+	if (sourceStream.codingParameters.audio.sampleFormat->sampleType != AudioSampleType::S16)
 	{
-		AudioBuffer *resampled = audioBuffer->Resample(*sourceStream.sampleFormat, AudioSampleFormat(sourceStream.sampleFormat->nChannels, AudioSampleType::S16, false));
+		AudioBuffer *resampled = audioBuffer->Resample(*sourceStream.codingParameters.audio.sampleFormat, AudioSampleFormat(sourceStream.codingParameters.audio.sampleFormat->nChannels, AudioSampleType::S16, false));
 		AudioFrame resampledFrame(resampled);
 		resampledFrame.pts = frame.pts;
 
@@ -253,26 +253,24 @@ void Prober::PrintStreamInfo()
 		{
 			case DataType::Audio:
 			{
-				AudioStream *const& refpAudioStream = (AudioStream *)stream;
-
 				//sample rate
 				stdOut << "    Sample rate: ";
-				if(refpAudioStream->codingParameters.audio.sampleRate == 0)
+				if(stream->codingParameters.audio.sampleRate == 0)
 					stdOut << "Unknown";
 				else
-					stdOut << refpAudioStream->codingParameters.audio.sampleRate << " Hz";
+					stdOut << stream->codingParameters.audio.sampleRate << " Hz";
 
 				//channels
 				stdOut << endl
 					<< u8"    Sample format: ";
-				if (refpAudioStream->sampleFormat.HasValue())
+				if (stream->codingParameters.audio.sampleFormat.HasValue())
 				{
 					stdOut << endl;
-					stdOut << u8"      Channels: " << refpAudioStream->sampleFormat->nChannels << endl;
+					stdOut << u8"      Channels: " << stream->codingParameters.audio.sampleFormat->nChannels << endl;
 					stdOut << u8"      Channel Layout: " << endl;
-					for (uint8 i = 0; i < refpAudioStream->sampleFormat->nChannels; i++)
+					for (uint8 i = 0; i < stream->codingParameters.audio.sampleFormat->nChannels; i++)
 					{
-						const auto &ch = refpAudioStream->sampleFormat->channels[i];
+						const auto &ch = stream->codingParameters.audio.sampleFormat->channels[i];
 						stdOut << u8"        " << i + 1 << u8":";
 						switch (ch.speaker)
 						{
@@ -306,9 +304,8 @@ void Prober::PrintStreamInfo()
 				break;
 			case DataType::Subtitle:
 			{
-				SubtitleStream *const& refpSubtitleStream = (SubtitleStream *)stream;
 			}
-				break;
+			break;
 			case DataType::Video:
 			{
 				VideoStream *const& refpVideoStream = (VideoStream *)stream;
@@ -382,7 +379,7 @@ void Prober::PrintStreamInfo()
 		}
 		stdOut << endl;
 
-		const Decoder *decoder = decoderContext ? &decoderContext->GetDecoder() : nullptr;
+		const Decoder *decoder = stream->decoder;
 		stdOut << u8"    Decoder: ";
 		if (decoder)
 		{
@@ -401,7 +398,7 @@ void Prober::PrintStreamInfo()
 void Prober::ProcessPacket()
 {
 	stdOut << "Packet #" << this->packetCounter << endl
-		   << "Input byte offset: " << this->input.GetCurrentOffset() << " / " << this->input.QuerySize() << endl
+		   << "Input byte offset: " << this->input.QueryCurrentOffset() << " / " << this->input.QuerySize() << endl
 		   << endl;
 
 	DecoderContext *const& refpDecoder = this->demuxer->GetStream(this->currentPacket->GetStreamIndex())->GetDecoderContext();
@@ -504,18 +501,18 @@ void Prober::Probe(bool headerOnly)
 			{
 				case DataType::Audio:
 				{
-					AudioStream *const& refpSourceStream = (AudioStream *)this->demuxer->GetStream(i);
+					Stream *const& refpSourceStream = this->demuxer->GetStream(i);
 
 					this->streams[i].pOutput = new FileOutputStream(dir + String(".wav"), true);
 					this->streams[i].muxer = Format::FindByExtension("wav")->CreateMuxer(*this->streams[i].pOutput);
 
-					AudioStream *pDestStream = new AudioStream();
+					Stream *pDestStream = new Stream(DataType::Audio);
 					this->streams[i].muxer->AddStream(pDestStream);
 
 					pDestStream->timeScale = refpSourceStream->timeScale;
 
 					pDestStream->SetCodingFormat(CodingFormatId::PCM_S16LE);
-					pDestStream->sampleFormat = AudioSampleFormat(refpSourceStream->sampleFormat->nChannels, AudioSampleType::S16, false);
+					pDestStream->codingParameters.audio.sampleFormat = AudioSampleFormat(refpSourceStream->codingParameters.audio.sampleFormat->nChannels, AudioSampleType::S16, false);
 					pDestStream->codingParameters.audio.sampleRate = refpSourceStream->codingParameters.audio.sampleRate;
 
 					//setup encoder
@@ -529,7 +526,8 @@ void Prober::Probe(bool headerOnly)
 				{
 					VideoStream *const& sourceStream = dynamic_cast<VideoStream *>(this->demuxer->GetStream(i));
 
-					FileSystem::OSFileSystem::GetInstance().GetDirectory(FileSystem::OSFileSystem::GetInstance().GetWorkingDirectory())->CreateSubDirectory(dir);
+					FileSystem::File workingDir(FileSystem::FileSystemsManager::Instance().OSFileSystem().GetWorkingDirectory());
+					workingDir.Child(dir).CreateDirectory();
 
 					if (*sourceStream->pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
 					{
