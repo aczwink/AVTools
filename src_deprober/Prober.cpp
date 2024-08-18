@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -116,15 +116,15 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 	StreamHandler& streamHandler = this->streams[streamIndex];
 
 	//create stream
-	VideoStream *pStream = new VideoStream;
+	Stream* stream = new Stream(DataType::Video);
 
-	pStream->codingParameters.video.size = frame.GetPixmap()->GetSize();
-	pStream->timeScale = TimeScale(1, 1);
-	pStream->SetCodingFormat(CodingFormatId::RawVideo);
-	pStream->pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
-	pStream->SetEncoderContext(pStream->codingParameters.codingFormat->GetBestMatchingEncoder()->CreateContext(*pStream));
+	stream->codingParameters.video.size = frame.GetPixmap()->GetSize();
+	stream->timeScale = TimeScale(1, 1);
+	stream->SetCodingFormat(CodingFormatId::RawVideo);
+	stream->codingParameters.video.pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
+	stream->SetEncoderContext(stream->codingParameters.codingFormat->GetBestMatchingEncoder()->CreateContext(*stream));
 
-	EncoderContext *encoder = pStream->GetEncoderContext();
+	EncoderContext *encoder = stream->GetEncoderContext();
 
 	if (streamHandler.resampler)
 	{
@@ -149,8 +149,8 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 	FileOutputStream file(dir / name, true);
 
 	//mux
-	Muxer *muxer = Format::FindByExtension(u8"bmp")->CreateMuxer(file);
-	muxer->AddStream(pStream);
+	Muxer *muxer = FormatRegistry::Instance().FindFormatByFileExtension(u8"bmp")->CreateMuxer(file);
+	muxer->AddStream(stream);
 
 	muxer->WriteHeader();
 	while (encoder->IsPacketReady())
@@ -308,18 +308,16 @@ void Prober::PrintStreamInfo()
 			break;
 			case DataType::Video:
 			{
-				VideoStream *const& refpVideoStream = (VideoStream *)stream;
-
 				//resolution
 				stdOut << "    Resolution: ";
-				if(refpVideoStream->codingParameters.video.size.width == 0 || refpVideoStream->codingParameters.video.size.height == 0)
+				if(stream->codingParameters.video.size.width == 0 || stream->codingParameters.video.size.height == 0)
 					stdOut << "Unknown";
 				else
-					stdOut << refpVideoStream->codingParameters.video.size.width << "x" << refpVideoStream->codingParameters.video.size.height;
+					stdOut << stream->codingParameters.video.size.width << "x" << stream->codingParameters.video.size.height;
 				stdOut << endl;
 
 				//aspect ratio
-				Math::Rational<uint16> aspectRatio = refpVideoStream->GetAspectRatio();
+				Math::Rational<uint16> aspectRatio = stream->codingParameters.video.AspectRatio();
 				stdOut << "    Aspect ratio: ";
 				if(aspectRatio.numerator == 0 || aspectRatio.denominator == 0)
 					stdOut << "Unknown";
@@ -329,13 +327,13 @@ void Prober::PrintStreamInfo()
 
 				//pixel format
 				stdOut << u8"    Frame pixel format: ";
-				if (refpVideoStream->pixelFormat.HasValue())
+				if (stream->codingParameters.video.pixelFormat.HasValue())
 				{
 					stdOut << endl;
-					stdOut << u8"        Number of planes: " << refpVideoStream->pixelFormat->nPlanes << endl;
+					stdOut << u8"        Number of planes: " << stream->codingParameters.video.pixelFormat->nPlanes << endl;
 					stdOut << u8"        Color space: ";
 
-					switch (refpVideoStream->pixelFormat->colorSpace)
+					switch (stream->codingParameters.video.pixelFormat->colorSpace)
 					{
 					case ColorSpace::RGB:
 						stdOut << u8"RGB";
@@ -412,11 +410,11 @@ void Prober::ProcessPacket()
 void Prober::Probe(bool headerOnly)
 {
 	//first find format
-	this->format = Format::Find(this->input);
+	this->format = FormatRegistry::Instance().ProbeFormat(this->input);
 	if(!this->format)
 	{
 		//second try by extension
-		this->format = Format::FindByExtension(this->path.GetFileExtension());
+		this->format = FormatRegistry::Instance().FindFormatByFileExtension(this->path.GetFileExtension());
 		if(this->format)
 		{
 			stdOut << "Warning: File format couldn't be identified else than by extension. This might be not avoidable but is unsafe." << endl;
@@ -504,7 +502,7 @@ void Prober::Probe(bool headerOnly)
 					Stream *const& refpSourceStream = this->demuxer->GetStream(i);
 
 					this->streams[i].pOutput = new FileOutputStream(dir + String(".wav"), true);
-					this->streams[i].muxer = Format::FindByExtension("wav")->CreateMuxer(*this->streams[i].pOutput);
+					this->streams[i].muxer = FormatRegistry::Instance().FindFormatByFileExtension(u8"wav")->CreateMuxer(*this->streams[i].pOutput);
 
 					Stream *pDestStream = new Stream(DataType::Audio);
 					this->streams[i].muxer->AddStream(pDestStream);
@@ -524,14 +522,14 @@ void Prober::Probe(bool headerOnly)
 				break;
 				case DataType::Video:
 				{
-					VideoStream *const& sourceStream = dynamic_cast<VideoStream *>(this->demuxer->GetStream(i));
+					Stream* sourceStream = this->demuxer->GetStream(i);
 
 					FileSystem::File workingDir(FileSystem::FileSystemsManager::Instance().OSFileSystem().GetWorkingDirectory());
 					workingDir.Child(dir).CreateDirectory();
 
-					if (*sourceStream->pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
+					if (*sourceStream->codingParameters.video.pixelFormat != PixelFormat(NamedPixelFormat::RGB_24))
 					{
-						this->streams[i].resampler = new ComputePixmapResampler(sourceStream->codingParameters.video.size, *sourceStream->pixelFormat);
+						this->streams[i].resampler = new ComputePixmapResampler(sourceStream->codingParameters.video.size, *sourceStream->codingParameters.video.pixelFormat);
 						this->streams[i].resampler->ChangePixelFormat(PixelFormat(NamedPixelFormat::BGR_24));
 					}
 				}
