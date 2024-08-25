@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -54,7 +54,7 @@ private:
 	//Members
 	const FileSystem::Path &path;
 	FileInputStream input;
-	const Format *format;
+	const ContainerFormat *format;
 	UniquePointer<Demuxer> demuxer;
 	UniquePointer<IPacket> currentPacket;
 	uint32 packetCounter;
@@ -62,8 +62,8 @@ private:
 	BinaryTreeMap<uint32, StreamHandler> streams;
 
 	//Methods
-	void FlushAudioFrame(uint32 streamIndex, AudioFrame &frame);
-	void FlushVideoFrame(uint32 streamIndex, VideoFrame &refFrame);
+	void FlushAudioFrame(uint32 streamIndex, Frame &frame);
+	void FlushVideoFrame(uint32 streamIndex, Frame &refFrame);
 	void FlushDecodedFrames();
 	void FlushFrame(uint32 streamIndex, Frame *frame);
 	void PrintMetaInfo();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -17,22 +17,27 @@
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
 //Local
-#include "ANode.h"
+#include "Node.hpp"
 
-class CEncoderNode : public ANode
+class DecoderNode : public Node
 {
-private:
-    //Members
-    IEncoder *pEncoder;
-
 public:
     //Constructor
-    inline CEncoderNode(IEncoder *pEncoder)
+    inline DecoderNode(Stream* stream) : codingParameters(stream->codingParameters)
     {
-        this->pEncoder = pEncoder;
+        this->decoderContext = stream->GetDecoderContext();
+        this->outputPorts.Resize(1);
+        this->outputPorts[0] = nullptr;
     }
 
     //Methods
-    bool OutputsRaw() const;
-    void Run();
+    bool CanProcess() const override;
+    PortFormat GetInputFormat(uint32 inputPortNumber) const override;
+    PortFormat GetOutputFormat(uint32 outputPortNumber) const;
+    void ProcessNextEntity() override;
+
+private:
+    //Members
+    DecoderContext* decoderContext;
+    const DecodingParameters& codingParameters;
 };

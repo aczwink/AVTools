@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,27 +16,38 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.h>
-using namespace ACStdLib;
+#pragma once
+#include <StdXX.hpp>
 //Local
-#include "ANode.h"
+#include "Node.hpp"
+//Namespaces
+using namespace StdXX;
+using namespace StdXX::Multimedia;
 
-class CFiltergraph
+class SourceNode : public Node
 {
-private:
-    //Members
-    CArray<ANode *> nodes;
-
 public:
+    //Constructor
+    SourceNode(FileInputStream *fileInputStream, Demuxer* demuxer);
+
     //Destructor
-    ~CFiltergraph();
+    ~SourceNode();
 
     //Methods
-    void Run();
+    bool CanProcess() const override;
+    PortFormat GetInputFormat(uint32 inputPortNumber) const override;
+    PortFormat GetOutputFormat(uint32 outputPortNumber) const;
+    void ProcessNextEntity() override;
 
     //Inline
-    inline void AddNode(ANode *pNode)
+    inline Demuxer *GetDemuxer()
     {
-        this->nodes.Push(pNode);
+        return this->demuxer;
     }
+
+private:
+    //Members
+    bool endOfPacketsReached;
+    FileInputStream* fileInputStream;
+    Demuxer* demuxer;
 };

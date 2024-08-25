@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,34 +16,41 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.h>
-using namespace ACStdLib;
+#pragma once
 //Local
-#include "ANode.h"
-//Namespaces
-using namespace ACStdLib::Multimedia;
+#include "Node.hpp"
 
-class CSourceNode : public ANode
+class SinkNode : public Node
 {
-private:
-    //Members
-    CFileInputStream *pFile;
-    ADemuxer *pDemuxer;
-
 public:
     //Constructor
-    CSourceNode(CFileInputStream *pFile, ADemuxer *pDemuxer);
+    SinkNode(const ContainerFormat *pFormat, FileOutputStream *pFile, Muxer *pMuxer);
 
     //Destructor
-    ~CSourceNode();
+    ~SinkNode();
+
+    //Properties
+	inline const ContainerFormat* Format()
+	{
+		return this->format;
+	}
+
+    inline class Muxer* Muxer()
+	{
+    	return this->muxer;
+	}
 
     //Methods
-    bool OutputsRaw() const;
-    void Run();
+	bool CanProcess() const override;
+	PortFormat GetInputFormat(uint32 inputPortNumber) const override;
+	PortFormat GetOutputFormat(uint32 outputPortNumber) const;
+    void ProcessNextEntity() override;
 
-    //Inline
-    inline ADemuxer *GetDemuxer()
-    {
-        return this->pDemuxer;
-    }
+private:
+    //Members
+    bool headerWritten;
+    bool finalized;
+    const ContainerFormat *format;
+    FileOutputStream *pFile;
+    class Muxer *muxer;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,26 +16,20 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Local
-#include "ANode.h"
+#include <StdXX.hpp>
+using namespace StdXX;
+using namespace StdXX::Multimedia;
 
-class CFilterNode : public ANode
+void CreateRGB24Image(const Math::Size<uint16>& size, const Math::Vector3S& rgb, Packet& packet)
 {
-private:
-    //Members
-    IFilter *pFilter;
+	PixelFormat pixelFormat(NamedPixelFormat::BGR_24);
+	Pixmap pixmap(size, pixelFormat);
+	RGBPixmapView view(pixmap);
 
-public:
-    //Constructor
-    inline CFilterNode(IFilter *pFilter)
-    {
-        this->pFilter = pFilter;
-    }
+	view.SetAllPixels(rgb);
 
-    //Destructor
-    ~CFilterNode();
+	uint32 imageSize = pixelFormat.ComputeLineSize(0, size.width) * size.height;
+	packet.Allocate(imageSize);
 
-    //Methods
-    bool OutputsRaw() const;
-    void Run();
-};
+	MemCopy(packet.GetData(), pixmap.GetPlane(0), imageSize);
+}

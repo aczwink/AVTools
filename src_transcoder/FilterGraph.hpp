@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,25 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Class Header
-#include "CFiltergraph.h"
+#pragma once
+#include <StdXX.hpp>
+//Local
+#include "Node.hpp"
+//Namespaces
+using namespace StdXX;
 
-//Destructor
-CFiltergraph::~CFiltergraph()
+class FilterGraph
 {
-    for(ANode *const& refpNode : this->nodes)
-    {
-        delete refpNode;
-    }
-}
+public:
+    //Methods
+    void Run();
 
-//Public methods
-void CFiltergraph::Run()
-{
-    uint32 i;
-
-    for(i = 0; i < this->nodes.GetNumberOfElements(); i++)
+    //Inline
+    inline void AddNode(Node* node)
     {
-        this->nodes[i]->Run();
+        this->nodes.Push(node);
     }
-}
+
+private:
+    //Members
+    DynamicArray<UniquePointer<Node>> nodes;
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017,2021 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2017-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -20,9 +20,8 @@
 using namespace StdXX;
 using namespace StdXX::Multimedia;
 
-void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate)
+void CreateSineSound(Packet &packet, uint8 nChannels, uint32 sampleRate, float32 frequency)
 {
-	const float32 frequency = 440; //A 440 Hz
 	const uint32 duration = 1; //seconds
 
 	uint32 nSamplesPerChannel = duration * sampleRate;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,23 +16,25 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Local
-#include "ANode.h"
+//Class Header
+#include "FilterGraph.hpp"
 
-class CDecoderNode : public ANode
+//Public methods
+void FilterGraph::Run()
 {
-private:
-    //Members
-    ADecoder *pDecoder;
+    bool didProcess;
 
-public:
-    //Constructor
-    inline CDecoderNode(ADecoder *pDecoder)
+    do
     {
-        this->pDecoder = pDecoder;
+    	didProcess = false;
+        for(auto& node : this->nodes)
+        {
+            if(node->CanProcess())
+            {
+                node->ProcessNextEntity();
+                didProcess = true;
+            }
+        }
     }
-
-    //Methods
-    bool OutputsRaw() const;
-    void Run();
-};
+    while(didProcess);
+}

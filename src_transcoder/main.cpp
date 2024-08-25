@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,206 +16,69 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.h>
-using namespace ACStdLib;
 //Local
-#include "globals.h"
-#include "CSinkNode.h"
-#include "CSourceNode.h"
-//Namespaces
-using namespace ACStdLib::Multimedia;
+#include "SinkNode.hpp"
+#include "SourceNode.hpp"
+#include "FilterGraph.hpp"
+#include "FilterGraphBuilder.hpp"
 
-//Global Variables
-CSourceNode *g_pLastSource = nullptr;
-
-//Prototypes
-bool CheckArguments();
-bool EvaluateArguments(const CLinkedList<CString> &refArgs);
-void PrintManual();
-
-int32 Main(const CString &refProgramName, const CLinkedList<CString> &refArgs)
+static bool ParseAudioFilter(const String& filter, FilterGraphBuilder& builder, const BinaryTreeMap<String, CodingFormatId>& codecStringMap)
 {
-    if(EvaluateArguments(refArgs))
-    {
-        g_filtergraph.Run();
+	if(filter == u8"decode")
+	{
+		builder.InsertDecoder(DataType::Audio);
+	}
+	else if(filter.StartsWith(u8"encode="))
+	{
+		String codec = filter.SubString(7);
+		builder.InsertEncoder(DataType::Audio, codecStringMap.Get(codec));
+	}
+	else
+		return false;
+	return true;
+}
 
-        return EXIT_SUCCESS;
-    }
-    else
-    {
-        PrintManual();
-        return EXIT_FAILURE;
-    }
+static bool ParseFilters(const FixedArray<String>& args, FilterGraphBuilder& builder, const BinaryTreeMap<String, CodingFormatId>& codecStringMap)
+{
+	for(uint32 i = 1; i < args.GetNumberOfElements() - 1; i++)
+	{
+		const auto& arg = args[i];
 
+		if(arg == u8"--f:a")
+		{
+			if(!ParseAudioFilter(args[i+1], builder, codecStringMap))
+				return false;
+			i++;
+		}
+	}
+
+	return true;
+}
+
+static void PrintManual()
+{
+	stdOut
+			<< u8"Usage: " << endl
+			<< u8"  transcoder" << " inputFile outputFile" << endl << endl;
+}
+
+int32 Main(const String& programName, const FixedArray<String>& args)
+{
     PrintManual();
-    return EXIT_SUCCESS;
-}
 
-void PrintManual()
-{
-    stdOut
-            << "Usage: " << endl
-            << "  transcoder" << " [file+]" << endl << endl
-            << "    in file [inopt+]   an input file" << endl
-            << endl
-            << "    out file [outopt+]   an output file" << endl
-            << endl
-            << "    inopt:" << endl;
-}
+    BinaryTreeMap<String, CodingFormatId> codecStringMap;
+    codecStringMap.Insert(u8"pcm_f32le", CodingFormatId::PCM_Float32LE);
 
-bool EvaluateInArgs(CLinkedListConstIterator<CString> &refIt, const CLinkedListConstIterator<CString> &refItEnd)
-{
-    CFileInputStream *pFile;
-    const IFormat *pFormat;
-    ADemuxer *pDemuxer;
-    CSourceNode *pSourceNode;
-    CPath path;
+    FilterGraph filterGraph;
+	FilterGraphBuilder builder(filterGraph);
 
-    //
-    path = *refIt;
-    ++refIt;
-    if(!path.Exists())
-    {
-        stdErr << "File '" << path << "' does not exist." << endl;
-        return false;
-    }
+	if(!builder.LoadSource(args[0]))
+	    return EXIT_FAILURE;
+	if(!ParseFilters(args, builder, codecStringMap))
+		return EXIT_FAILURE;
+    if(!builder.LoadSink(args[args.GetNumberOfElements() - 1]))
+        return EXIT_FAILURE;
 
-    pFile = new CFileInputStream(path);
-    pFormat = IFormat::Find(*pFile);
-    if(!pFormat)
-    {
-        //second try by extension
-        pFormat = IFormat::FindByExtension(path.GetFileExtension());
-        if(pFormat)
-        {
-            stdOut << "Warning: File format couldn't be identified else than by extension. This is might be not avoidable but is unsafe." << endl;
-        }
-        else
-        {
-            stdErr << "No format could be found for file '" << path << "'. Either the format is not supported or this is not a valid media file." << endl;
-            delete pFile;
-            return false;
-        }
-    }
-
-    pDemuxer = pFormat->CreateDemuxer(*pFile);
-    if(!pDemuxer)
-    {
-        stdErr << "No demuxer is available for format '" << pFormat->GetName() << "'." << endl;
-        delete pFile;
-        return false;
-    }
-
-    pDemuxer->ReadHeader();
-    if(!pDemuxer->FindStreamInfo())
-    {
-        stdErr << "Not all info could be gathered for file '" << path << "'. Expect errors..." << endl;
-    }
-
-    pSourceNode = new CSourceNode(pFile, pDemuxer);
-    g_pLastSource = pSourceNode;
-
-    g_filtergraph.AddNode(pSourceNode);
-
-    //eval args
-    while(refIt != refItEnd)
-    {
-        if(*refIt == "out")
-        {
-            break;
-        }
-        else
-        {
-            ASSERT(0);
-        }
-    }
-
-    return true;
-}
-
-bool EvaluateOutArgs(CLinkedListConstIterator<CString> &refIt, const CLinkedListConstIterator<CString> &refItEnd)
-{
-    CFileOutputStream *pFile;
-    const IFormat *pFormat;
-    AMuxer *pMuxer;
-    CSinkNode *pSink;
-    CPath path;
-
-    //
-    path = *refIt;
-    ++refIt;
-
-    pFormat = IFormat::FindByExtension(path.GetFileExtension());
-    if(!pFormat)
-    {
-        stdErr << "No format could be found for file '" << path << "'." << endl;
-        return false;
-    }
-
-    pFile = new CFileOutputStream(path);
-
-    pMuxer = pFormat->CreateMuxer(*pFile);
-    if(!pMuxer)
-    {
-        stdErr << "No muxer is available for format '" << pFormat->GetName() << "'." << endl;
-        delete pFile;
-        return false;
-    }
-
-    pSink = new CSinkNode(pFormat, pFile, pMuxer);
-    g_filtergraph.AddNode(pSink);
-
-    //eval args
-    while(refIt != refItEnd)
-    {
-        if(*refIt == "out")
-        {
-            break;
-        }
-        else
-        {
-            ASSERT(0);
-        }
-    }
-
-    pSink->ConnectAll(*g_pLastSource);
-
-    pMuxer->WriteHeader();
-
-    return true;
-}
-
-bool EvaluateArguments(const CLinkedList<CString> &refArgs)
-{
-    auto &refIt = refArgs.begin();
-    while(refIt != refArgs.end())
-    {
-        if(*refIt == "in")
-        {
-            ++refIt;
-            if(!EvaluateInArgs(refIt, refArgs.end()))
-                return false;
-        }
-        else if(*refIt == "out")
-        {
-            ++refIt;
-            if(!EvaluateOutArgs(refIt, refArgs.end()))
-                return false;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    return CheckArguments();
-}
-
-bool CheckArguments()
-{
-    //there must be at least one source and one sink
-    if(!g_pLastSource)
-        return false;
-
-    return true;
+	filterGraph.Run();
+	return EXIT_SUCCESS;
 }

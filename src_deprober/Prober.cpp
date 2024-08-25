@@ -49,7 +49,7 @@ Prober::Prober(const FileSystem::Path &path) : path(path), input(path)
 }
 
 //Private methods
-void Prober::FlushAudioFrame(uint32 streamIndex, AudioFrame &frame)
+void Prober::FlushAudioFrame(uint32 streamIndex, Frame &frame)
 {
 	const Stream &sourceStream = *this->streams[streamIndex].sourceStream;
 	const AudioBuffer *audioBuffer = frame.GetAudioBuffer();
@@ -59,7 +59,7 @@ void Prober::FlushAudioFrame(uint32 streamIndex, AudioFrame &frame)
 	if (sourceStream.codingParameters.audio.sampleFormat->sampleType != AudioSampleType::S16)
 	{
 		AudioBuffer *resampled = audioBuffer->Resample(*sourceStream.codingParameters.audio.sampleFormat, AudioSampleFormat(sourceStream.codingParameters.audio.sampleFormat->nChannels, AudioSampleType::S16, false));
-		AudioFrame resampledFrame(resampled);
+		Frame resampledFrame(resampled);
 		resampledFrame.pts = frame.pts;
 
 		encoderContext->Encode(resampledFrame);
@@ -96,10 +96,10 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 	switch(frame->GetType())
 	{
 		case DataType::Audio:
-			this->FlushAudioFrame(streamIndex, (AudioFrame &)*frame);
+			this->FlushAudioFrame(streamIndex, *frame);
 			break;
 		case DataType::Video:
-			this->FlushVideoFrame(streamIndex, (VideoFrame &)*frame);
+			this->FlushVideoFrame(streamIndex, *frame);
 			break;
 	}
 
@@ -111,7 +111,7 @@ void Prober::FlushFrame(uint32 streamIndex, Frame *frame)
 	this->totalFrameCounter++;
 }
 
-void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
+void Prober::FlushVideoFrame(uint32 streamIndex, Frame &frame)
 {
 	StreamHandler& streamHandler = this->streams[streamIndex];
 
@@ -120,9 +120,9 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 
 	stream->codingParameters.video.size = frame.GetPixmap()->GetSize();
 	stream->timeScale = TimeScale(1, 1);
-	stream->SetCodingFormat(CodingFormatId::RawVideo);
+	stream->SetCodingFormat(CodingFormatId::RawSinglePlaneVideo);
 	stream->codingParameters.video.pixelFormat = PixelFormat(NamedPixelFormat::BGR_24);
-	stream->SetEncoderContext(stream->codingParameters.codingFormat->GetBestMatchingEncoder()->CreateContext(*stream));
+	stream->SetEncoderContext(stream->codingParameters.codingFormat->GetBestMatchingEncoder()->CreateContext(stream->codingParameters));
 
 	EncoderContext *encoder = stream->GetEncoderContext();
 
@@ -131,7 +131,7 @@ void Prober::FlushVideoFrame(uint32 streamIndex, VideoFrame &frame)
 		//resample
 		Pixmap* resampledPixmap = streamHandler.resampler->Run(*frame.GetPixmap());
 
-		VideoFrame resampledFrame(resampledPixmap);
+		Frame resampledFrame(resampledPixmap);
 		resampledFrame.pts = frame.pts;
 
 		encoder->Encode(resampledFrame);
@@ -515,7 +515,7 @@ void Prober::Probe(bool headerOnly)
 
 					//setup encoder
 					const Encoder *encoder = pDestStream->codingParameters.codingFormat->GetBestMatchingEncoder();
-					pDestStream->SetEncoderContext(encoder->CreateContext(*pDestStream));
+					pDestStream->SetEncoderContext(encoder->CreateContext(pDestStream->codingParameters));
 
 					this->streams[i].muxer->WriteHeader();
 				}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of AVTools.
  *
@@ -16,33 +16,27 @@
  * You should have received a copy of the GNU General Public License
  * along with AVTools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <ACStdLib.h>
-using namespace ACStdLib;
 //Local
-#include "ANode.h"
-//Namespaces
-using namespace ACStdLib::Multimedia;
+#include "Node.hpp"
 
-//Forward declarations
-class CSourceNode;
-
-class CSinkNode : public ANode
+class EncoderNode : public Node
 {
-private:
-    //Members
-    const IFormat *pFormat;
-    CFileOutputStream *pFile;
-    AMuxer *pMuxer;
-
 public:
     //Constructor
-    CSinkNode(const IFormat *pFormat, CFileOutputStream *pFile, AMuxer *pMuxer);
-
-    //Destructor
-    ~CSinkNode();
+    inline EncoderNode(EncoderContext* encoderContext)
+    {
+        this->encoderContext = encoderContext;
+        this->outputPorts.Resize(1);
+        this->outputPorts[0] = nullptr;
+    }
 
     //Methods
-    void ConnectAll(CSourceNode &refSourceNode);
-    bool OutputsRaw() const;
-    void Run();
+    bool CanProcess() const override;
+    PortFormat GetInputFormat(uint32 inputPortNumber) const override;
+    PortFormat GetOutputFormat(uint32 outputPortNumber) const;
+    void ProcessNextEntity() override;
+
+private:
+    //Members
+    UniquePointer<EncoderContext> encoderContext;
 };
